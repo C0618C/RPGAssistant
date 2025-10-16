@@ -63,18 +63,22 @@ function InitDataLine_ExecCMD(client, server) {
 function InitCollecter(client, server) {
     //注册-仅限游戏运行端采用，用于注册为游戏端
     client.on("GameStart", (name) => {
+        // client.broadcast.emit("message", "游戏已上线：" + name, client.id);
+        console.log("游戏上线：", name, client.id);
+
         if (!client.gameName) client.gameName = name;
         if (!server.dataServerList.has(client.id))
             server.dataServerList.set(client.id, client);
-
-        client.broadcast.emit("message", "游戏已上线：" + name);
     });
+
     //注销
-    client.on("disconnect", () => {
+    client.on("disconnect", (data) => {
+        console.log("客户端离线：", client.id);
         if (server.dataServerList.has(client.id)) {
             let gameName = server.dataServerList.get(client.id)?.gameName;
             server.dataServerList.delete(client.id);
             client.broadcast.emit("GameEnd", gameName);
+            console.log("游戏下线：", gameName, client.gameName, client.id);
         }
     });
 }
@@ -114,6 +118,8 @@ exports.InitServer = function (io) {
 
     //当各种客户端连上服务器
     io.on('connection', function (socket) {
+        console.log("客户端上线：", socket.id);
+
         InitCollecter(socket, io);
         InitDataLine_AskData(socket, io);
         InitDataLine_AnswerData(socket, io);

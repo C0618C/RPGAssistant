@@ -39,6 +39,29 @@
       return setTimeout(Init, 1000);
     }
   }
+
+  const element = document.createElement('div');
+  // 设置元素样式
+  Object.assign(element.style, {
+    position: 'fixed',
+    bottom: '2px',
+    left: '2px',
+    width: '42px',
+    height: '42px',
+    zIndex: '9999',
+    border: '1px solid #fff',
+    color: '#fff',
+    padding: '1px 1px',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    textAlign: 'center',
+  });
+  element.textContent = '助手重连';
+  element.addEventListener('click', () => {
+    hasInit = false;
+    Init();
+  });
+  // 将元素添加到文档中
+  document.body.appendChild(element);
   Init();
 })();
 
@@ -106,17 +129,22 @@ function AnswerData(data, socketClient) {
  * @param {*} format 格式，如：fn::fulRate 即调用 obj.fulRate()；
  */
 function GetDataWithFormax(obj, format) {
-  if (!format) return obj;
-  let result = Object.assign({}, format);
-  for (let key in format) {
-    if (format[key] === "value") {
-      result[key] = obj[key];
-    } else if (format[key]?.startsWith && format[key].startsWith("fn::")) {
-      let fn = format[key].replace("fn::", "");
-      result[key] = obj[fn]?.call(obj);
+  try {
+    if (!format) return obj;
+    let result = Object.assign({}, format);
+    for (let key in format) {
+      if (format[key] === "value") {
+        result[key] = obj[key];
+      } else if (format[key]?.startsWith && format[key].startsWith("fn::")) {
+        let fn = format[key].replace("fn::", "");
+        result[key] = obj[fn]?.call(obj);
+      }
     }
+    return result;
+  } catch (err) {
+    console.error("GetDataWithFormax::", err);
+    return null;
   }
-  return result;
 }
 
 /**

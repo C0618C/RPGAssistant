@@ -280,13 +280,7 @@
 
             socketClient.on("GameEnd", (data) => {
                 //socketClient.emit("CHECK", data);
-                $("#loading").show();
-                $("#main").hide();
-                GameId = null;
-                GameName = null;
-                GameData = null;
-                GameCacheData = {};
-                ConnectGame();
+                EndGame(data);
             });
 
             socketClient.on("CHECK_Result", (data) => {
@@ -321,7 +315,7 @@
                 if (data.gameList.length === 1) {
                     GameId = data.gameList[0].id;
                     GameName = data.gameList[0].name;
-                    console.log("已载入游戏")
+                    console.log("已载入游戏：", GameName)
                     return;
                 }
                 _stateSelectGame = true;
@@ -350,7 +344,6 @@
                 }
             }
 
-
             function Update() {
                 GetData("Actor", { format: ACTOR_DATA_FORMAT }, { count: ACTOR_COUNT });
                 GetData("Item");
@@ -362,6 +355,19 @@
                 GetData("Variables");
                 GetData("Switches");
                 requestAnimationFrame(Update);
+            }
+
+            function EndGame(gameName) {
+                return;
+                if (gameName !== GameName) return;
+                console.log("游戏下线：", GameName);
+                $("#loading").show();
+                $("#main").hide();
+                GameId = null;
+                GameName = null;
+                GameData = null;
+                GameCacheData = {};
+                ConnectGame();
             }
 
             ConnectGame();
@@ -440,6 +446,8 @@
          * @param {object} data 角色数据
          */
         function RenderActor(data) {
+            if (!data) return;
+
             let template = $("#actorInfoTemplate").html();
             // console.log(template);
 
