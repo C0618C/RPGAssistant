@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPG Maker 游戏通用助手</title>
+    <script src="/../GameTools/jquery-3.6.0.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="gameSetting.js"></script>
+    <style>
+        @font-face {
+            font-family: 'GameFont';
+            src: url('荆南麦圆体.ttf');
+        }
+
+        * {
+            font-family: 'GameFont';
+            font-size: 20px;
+        }
+
+        body {
+            color: #fff;
+            background-color: #000;
+            padding: 0 0;
+            margin: 0 0;
+            box-sizing: border-box;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #gameInfo {
+            display: flex;
+            flex-direction: row;
+            height: 100%;
+        }
+
+        #gameInfo .col {
+            height: auto;
+            border: 1px solid darkred;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .bar {
+            width: 100%;
+            height: 10px;
+            background-color: #555;
+            position: relative;
+        }
+
+        .barValue {
+            height: 100%;
+            background-color: #fff;
+        }
+
+        .barValueText {
+            color: #fff;
+            text-align: center;
+            position: absolute;
+            top: 0px;
+            right: 1px;
+        }
+
+        .stateTag {
+            float: left;
+            border: 1px solid #fff;
+            padding: 2px 5px;
+            margin-right: 5px;
+            cursor: pointer;
+        }
+
+        .box {
+            border-top: 2px solid darkred;
+            margin-top: 10px;
+        }
+
+        .box h5 {
+            text-align: center;
+        }
+
+        #itemInfo,
+        #armorsInfo,
+        #weaponsInfo,
+        #playerInfo {
+            display: flex;
+            flex-wrap: wrap;
+            padding: 2px 8px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        #playerInfo div {
+            padding: 2px 8px;
+        }
+
+        .item,
+        .armor,
+        .weapon {
+            border: 1px solid darkblue;
+            padding: 2px 5px;
+            margin-right: 5px;
+            cursor: pointer;
+            border-radius: 5px;
+            background-color: #eee;
+            color: blueviolet;
+        }
+
+        .armor {
+            color: rgb(149, 137, 8);
+            border: 1px solid darkgreen;
+        }
+
+        .weapon {
+            color: rgb(10, 149, 8);
+            border: 1px solid darkgreen;
+        }
+
+        #toolsInfo {
+            padding: 2px 8px;
+            margin-bottom: 60px;
+        }
+
+        #toolsInfo button {
+            color: darkred;
+            font-size: 25px;
+            padding: 5px 10px;
+            margin: 5px 5px;
+        }
+
+        #switchesInfo,
+        #variablesInfo {
+            display: flex;
+            flex-wrap: wrap;
+            padding: 2px 15px;
+            overflow-y: auto;
+            max-height: 92vh;
+        }
+
+        .col h4 {
+            text-align: center;
+        }
+
+        .showAction {
+            background-color: #000;
+            color: #fff;
+            margin: 5px 5px;
+            box-shadow: 2px 2px 8px darkred;
+        }
+
+        .TopWin {
+            position: absolute;
+            top: 10%;
+            left: 25%;
+            width: 50vw;
+            height: 80vh;
+            border: 1px solid darkred;
+            background-color: #000;
+            display: none;
+            box-shadow: 5px 5px 25px darkred;
+        }
+
+        .TopWin h3 {
+            text-align: center;
+            height: 40px;
+            border-bottom: 1px solid darkred;
+        }
+
+        .TopWin #TopWinContent {
+            padding: 10px 20px;
+            display: flex;
+            justify-content: center
+        }
+
+        .TopWin #TopWinContent * {
+            font-size: 1.5em;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="loading" style="width: 100%;height: 100vh;display: flex;justify-content: center;align-items: center;">
+        正在查找游戏，若长期停留本界面，请刷新游戏试试...</div>
+    <div id="main" style="width: 100%;height: 100vh;display: none;">
+        <h3 id="gameName"></h3>
+        <div id="gameInfo">
+            <!-- 第一列 -->
+            <div class="col" style="flex-grow: 0;flex-basis: min-content;">
+                <div id="actorInfo"></div>
+                <div id="playerInfo" class="box" style="width: 400px;">
+                    <div id="coordinate">坐标：</div>
+                    <div id="gold">金币：</div>
+                </div>
+                <div class="box">
+                    <h5>背包</h5>
+                    <div id="itemInfo"></div>
+                </div>
+                <div class="box">
+                    <h5>装备</h5>
+                    <div id="weaponsInfo"></div>
+                    <hr />
+                    <div id="armorsInfo"></div>
+                </div>
+                <div class="box">
+                    <div id="toolsInfo">
+                        <button type="button" onclick="btGetItem()">获取物品</button>
+                        <button type="button" onclick="btGetWeapons()">获取武器</button>
+                        <button type="button" onclick="btGetArmors()">获取防具</button>
+                        <button type="button" onclick="btSetActorCount()">角色数量</button>
+                        <button type="button">移动</button>
+                        <button type="button">习得技能</button>
+                        <button type="button">查看CG</button>
+                        <button type="button">监控状态</button>
+                        <button type="button">监控变量</button>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <h4>变量</h4>
+                <div id="variablesInfo"></div>
+            </div>
+            <div class="col">
+                <h4>开关</h4>
+                <div id="switchesInfo"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="TopWin" class="TopWin">
+        <div style="float:right;margin-top:15px;margin-right: 15px;font-size: 25px;cursor: pointer;"
+            onclick="$('#TopWin').hide()">X</div>
+        <h3 id="TopWinTitle">窗口标题</h3>
+        <div id="TopWinContent"></div>
+    </div>
+
+    <script type="template" id="actorInfoTemplate">
+                <div id="baseInfo_${actorIndex}" style="margin-bottom: 20px;">
+                    <div>
+                        <div id="actorLevel_${actorIndex}" style="float: right;margin-right: 20px;"></div>
+                        <div id="actorName_${actorIndex}"></div>
+                    </div>
+                    <table class="actorInfoTable">
+                        <tr>
+                            <td>&nbsp;HP：</td>
+                            <td class="bar">
+                                <div class="barValue" id="hp_${actorIndex}" style="background-color: red;"></div>
+                                <div class="barValueText" id="hpTxt_${actorIndex}"></div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;MP：</td>
+                            <td class="bar">
+                                <div class="barValue" id="mp_${actorIndex}" style="background-color: blue;"></div>
+                                <div class="barValueText" id="mpTxt_${actorIndex}"></div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>&nbsp;EXP：</td>
+                            <td class="bar">
+                                <div class="barValue" id="exp_${actorIndex}" style="background-color: green;"></div>
+                                <div class="barValueText" id="expTxt_${actorIndex}"></div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>状态:</td>
+                            <td id="actorStates_${actorIndex}"></td>
+                        </tr>
+                    </table>
+                </div>
+    </script>
+    <script type="text/javascript">
+        // 全局系统变量
+        let GameId = null;
+        let GameName = null;
+        let GameData = null; //游戏中$datak开头的数据
+        let GameCacheData = {};
+        (function () {
+            let socketClient = io();
+            window.socketClient = socketClient;
+
+            socketClient.on("GameEnd", (data) => {
+                //socketClient.emit("CHECK", data);
+                $("#loading").show();
+                $("#main").hide();
+                GameId = null;
+                GameName = null;
+                GameData = null;
+                GameCacheData = {};
+                ConnectGame();
+            });
+
+            socketClient.on("CHECK_Result", (data) => {
+                SelectGame(data);
+            });
+            socketClient.on("Answer_Data", (data) => {
+                // console.log("[应答数据]：", data);
+                RenderData(data);
+            })
+
+
+
+            //系统状态
+            let _stateSelectGame = false;
+
+            //连接游戏
+            function ConnectGame() {
+                if (GameId) {
+                    InitGame();
+                    return;
+                }
+
+                socketClient.emit("CHECK", "check");
+
+                if (!_stateSelectGame) setTimeout(() => {
+                    ConnectGame();
+                }, 1000);
+            }
+
+            // 选择游戏
+            function SelectGame(data) {
+                if (data.gameList.length === 1) {
+                    GameId = data.gameList[0].id;
+                    GameName = data.gameList[0].name;
+                    console.log("已载入游戏")
+                    return;
+                }
+                _stateSelectGame = true;
+                //TODO：做一个选游戏的界面
+                // for(let i = 0;i<data.gameList.length;i++){
+
+                // }
+            }
+
+            //初始化游戏
+            function InitGame() {
+                $("#loading").hide();
+                $("#main").show();
+                $("#gameName").text(GameName);
+
+                if (!GameData) {//初始化数据
+                    GameData = {};
+                    GetData("Variables", { handleType: "Cache" }, { varName: "$dataSystem.variables" });
+                    GetData("Switches", { handleType: "Cache" }, { varName: "$dataSystem.switches" });
+                    GetData("States", { handleType: "Cache" }, { varName: "$dataStates" });
+                    GetData("Items", { handleType: "Cache" }, { varName: "$dataItems" });
+                    GetData("Weapons", { handleType: "Cache" }, { varName: "$dataWeapons" });
+                    GetData("Armors", { handleType: "Cache" }, { varName: "$dataArmors" });
+
+                    setTimeout(Update, 1000);
+                }
+            }
+
+
+            function Update() {
+                GetData("Actor", { format: ACTOR_DATA_FORMAT }, { count: ACTOR_COUNT });
+                GetData("Item");
+                GetData("Armor");
+                GetData("Weapon");
+                GetData("Gold");
+                GetData("Player");
+                GetData("Coordinate");
+                GetData("Variables");
+                GetData("Switches");
+                requestAnimationFrame(Update);
+            }
+
+            ConnectGame();
+        })();
+
+        /**
+         * 获取数据
+         * @param {string} dataName 数据名称
+         * @param {object} options 选项
+         * @param {string} options.handleType 处理数据的方式，Render：渲染数据，Cache：缓存数据
+         * @param {string} options.key 数据标识，仅用于UI区分数据类型，如"cache"则执行数据缓存。
+         * @param {string} options.format 获取数据的格式/途径
+         */
+        function GetData(dataName, { handleType, key, format } = { handleType: "Render", key: "" }, defaultData = {}) {
+            let data = {
+                action: "GetData",
+                type: dataName,
+                handleType: handleType,    //处理数据的方式，Render：渲染数据，Cache：缓存数据
+                format: format,          //获取数据的格式/途径
+                key: key,                    //数据标识，用于区分同类型、不同格式的数据
+                ...defaultData
+            };
+
+            window.socketClient.emit("Ask_Data", data);
+        }
+
+        function ExecCMD(data) {
+            let cmd = {
+                ...data
+            }
+            window.socketClient.emit("ExecCMD", cmd);
+        }
+
+        /**
+         * 更新UI——渲染数据
+         * @param {object} data 数据
+         */
+        function RenderData(data) {
+            if (data.handleType === "Cache") return CacheData(data);//仅需缓存数据，无需渲染
+
+            //检查缓存
+            let cacheData = JSON.stringify(data.data);
+            if (GameCacheData[data.type] === cacheData) return;//数据未改变，无需渲染
+            GameCacheData[data.type] = cacheData;//更新缓存
+
+            switch (data.type) {
+                case "Actor":
+                    RenderActor(data.data);
+                    break;
+                case "Item":
+                    RenderItem(data.data);
+                    break;
+                case "Armor":
+                    RenderArmor(data.data);
+                    break;
+                case "Weapon":
+                    RenderWeapon(data.data);
+                    break;
+                case "Gold":
+                    $("#gold").text(`金币：${data.data || 0}`);
+                    break;
+                case "Coordinate":
+                    $("#coordinate").text(`坐标：(${data.data.x},${data.data.y})`);
+                    break;
+                case "Variables":
+                    RenderVariables(data.data);
+                    break;
+                case "Switches":
+                    RenderSwitches(data.data);
+                    break;
+            }
+        }
+
+        /**
+         * 渲染角色数据
+         * @param {object} data 角色数据
+         */
+        function RenderActor(data) {
+            let template = $("#actorInfoTemplate").html();
+            // console.log(template);
+
+            let actorPlant = $("#actorInfo");
+            actorPlant.empty();
+
+            for (let i = 0; i < data.length; i++) {
+                let data_i = data[i];
+                let actorHtml = $(template.replace(/\${actorIndex}/g, i));
+
+                actorHtml.find(`#actorName_${i}`).text("　" + data_i._name);
+                actorHtml.find(`#actorLevel_${i}`).text(`Lv.${data_i._level}`);
+                actorHtml.find(`#hp_${i}`).css("width", `${data_i._hp / data_i.mhp * 100}%`);
+                actorHtml.find(`#mp_${i}`).css("width", `${data_i._mp / data_i.mmp * 100}%`);
+                actorHtml.find(`#exp_${i}`).css("width", `${data_i._exp / data_i._maxExp * 100}%`);
+                actorHtml.find(`#hpTxt_${i}`).text(`${data_i._hp}/${data_i.mhp}`);
+                actorHtml.find(`#mpTxt_${i}`).text(`${data_i._mp}/${data_i.mmp}`);
+                actorHtml.find(`#expTxt_${i}`).text(`${data_i._exp}/${data_i._maxExp}`);
+                if (!data_i._maxExp) actorHtml.find(`#exp_${i}`).closest("tr").hide();
+
+                //设置状态
+                if (data_i._states && GameData?.dataStates) {
+                    let stateBox = actorHtml.find(`#actorStates_${i}`);
+                    for (let state of data_i._states) {
+                        stateBox.append(`<div class="stateTag" title="${GameData.dataStates[state].note}">${GameData.dataStates[state].name}</div>`);
+                    }
+                }
+
+                actorPlant.append(actorHtml);
+            }
+        }
+
+        /**
+         * 渲染物品数据
+         * @param {object} data 物品数据
+         */
+        function RenderItem(data) {
+            let itemBag = $("#itemInfo");
+            itemBag.empty();
+
+            let bagHtml = "";
+            for (let i = 0; i < data.length; i++) {
+                let data_i = data[i];
+                bagHtml += `<div class="item" title="${data_i.item.description}_${data_i.item.note}">${data_i.item.name} x ${data_i.count}</div>`;
+            }
+            itemBag.html(bagHtml);
+        }
+
+        function RenderArmor(data) {
+            let armorBag = $("#armorsInfo");
+            armorBag.empty();
+
+            let bagHtml = "";
+            for (let i = 0; i < data.length; i++) {
+                let data_i = data[i];
+                bagHtml += `<div class="armor" title="${data_i.armor.description}_${data_i.armor.note}">${data_i.armor.name} x ${data_i.count}</div>`;
+            }
+            armorBag.html(bagHtml);
+        }
+
+        function RenderWeapon(data) {
+            let armorBag = $("#weaponsInfo");
+            armorBag.empty();
+
+            let bagHtml = "";
+            for (let i = 0; i < data.length; i++) {
+                let data_i = data[i];
+                bagHtml += `<div class="weapon" title="${data_i.armor.description}_${data_i.armor.note}">${data_i.armor.name} x ${data_i.count}</div>`;
+            }
+            armorBag.html(bagHtml);
+        }
+
+        /**
+         * 渲染变量数据
+         * @param {object} data 变量数据
+         */
+        function RenderVariables(data) {
+            if (!GameData?.Variables) return;
+            let variablesBox = $("#variablesInfo");
+            variablesBox.empty();
+
+            let bagHtml = "";
+            for (let key in data) {
+                if (!GameData.Variables[key]) continue;
+                let v = GameData.Variables[key];
+                bagHtml += `<div class="item showAction" style="border:1px solid pink" title="${key}" onclick="ClickVariable(${key})">${v} ：${data[key]}</div>`;
+            }
+            variablesBox.html(bagHtml);
+        }
+
+        function RenderSwitches(data) {
+            if (!GameData?.Switches) return;
+            let switchesBox = $("#switchesInfo");
+            switchesBox.empty();
+
+            let bagHtml = "";
+            for (let key in data) {
+                if (!GameData.Switches[key]) continue;
+                let v = GameData.Switches[key];
+                bagHtml += `<div class="item showAction" title="${key}" onclick="ClickSwitch(${key})">${v} ：${data[key]}</div>`;
+            }
+            switchesBox.html(bagHtml);
+        }
+
+
+        /**
+         * 缓存数据
+         * @param {object} data 缓存数据
+         */
+        function CacheData(data) {
+            GameData[data.type] = data.data;
+            // console.log("缓存数据：", data);
+        }
+
+        function ClickVariable(index) {
+            alert(GameData.Variables[index]);
+        }
+
+        function ClickSwitch(index) {
+            alert(GameData.Switches[index]);
+        }
+
+        /**
+         * 窗口：获取防具
+         */
+        function btGetArmors() {
+            let dom = $(`<div style="width:100%;height:100%;overflow:auto;display:flex;flex-wrap:wrap;color:darkyellow;"></div>`);
+            dom.append(`<div style="width:100%;height:50px;font-size:24px;">选定的防具：<span id="selectedItemName" style="color:darkgoldenrod;"></span>
+                <input id="selectedItemId" type="hidden" value="" />
+                数量：<input id="selectedCount" type="number" value="1" />
+                <button type="button">获取防具</button></div>`);
+            let box = $(`<div style="width:100%;height:800px;overflow-y:auto;display:flex;flex-wrap:wrap;color:darkgreen;align-content: flex-start;"></div>`);
+            dom.append(box);
+            GameData.Armors[0] = { name: "全选", id: -1, description: "全部获取", note: "" };
+            for (let i = 0; i < GameData.Armors.length; i++) {
+                let item = GameData.Armors[i];
+                if (!item) continue;
+                if (!item.name) continue;
+
+                let title = `${item.description}_${item.note}`;
+                title = title.replace(/[>"]/g, "");
+                let itemBar = $(`<div class="item" title="${title}" style="min-width:186px;color:darkgreen;text-align:center;font-size:24px;">${item.name}</div>`);
+                itemBar.click(function () {
+                    $("#selectedItemName").text(`${item.name} (${item.id})`);
+                    $("#selectedItemId").val(item.id);
+                });
+                box.append(itemBar);
+            }
+
+            dom.find("button").click(function () {
+                // ACTOR_COUNT = parseInt(dom.find("#actorCount").val());
+                ExecCMD({
+                    cmd: "Get",
+                    type: "Armor",
+                    id: parseInt($("#selectedItemId").val()),
+                    count: parseInt($("#selectedCount").val()),
+                });
+                $("#TopWin").hide();
+            });
+            ShowTopWin("获取防具", dom);
+        }
+
+        /**
+         * 窗口：获取武器
+         */
+        function btGetWeapons() {
+            let dom = $(`<div style="width:100%;height:100%;overflow:auto;display:flex;flex-wrap:wrap;color:darkyellow;"></div>`);
+            dom.append(`<div style="width:100%;height:50px;font-size:24px;">选定的武器：<span id="selectedItemName" style="color:darkgoldenrod;"></span>
+                <input id="selectedItemId" type="hidden" value="" />
+                数量：<input id="selectedCount" type="number" value="1" />
+                <button type="button">获取武器</button></div>`);
+            let box = $(`<div style="width:100%;height:800px;overflow-y:auto;display:flex;flex-wrap:wrap;align-content: flex-start;"></div>`);
+            dom.append(box);
+            GameData.Weapons[0] = { name: "全选", id: -1, description: "全部获取", note: "" };
+            for (let i = 0; i < GameData.Weapons.length; i++) {
+                let item = GameData.Weapons[i];
+                if (!item) continue;
+                if (!item.name) continue;
+
+                let title = `${item.description}_${item.note}`;
+                title = title.replace(/[>"]/g, "");
+                let itemBar = $(`<div class="item" title="${title}" style="min-width:186px;color:darkorange;text-align:center;font-size:24px;">${item.name}</div>`);
+                itemBar.click(function () {
+                    $("#selectedItemName").text(`${item.name} (${item.id})`);
+                    $("#selectedItemId").val(item.id);
+                });
+                box.append(itemBar);
+            }
+
+            dom.find("button").click(function () {
+                // ACTOR_COUNT = parseInt(dom.find("#actorCount").val());
+                ExecCMD({
+                    cmd: "Get",
+                    type: "Weapon",
+                    id: parseInt($("#selectedItemId").val()),
+                    count: parseInt($("#selectedCount").val()),
+                });
+                $("#TopWin").hide();
+            });
+            ShowTopWin("获取武器", dom);
+        }
+
+        /**
+         * 窗口：获取物品
+         */
+        function btGetItem() {
+            let dom = $(`<div style="width:100%;height:100%;overflow:auto;display:flex;flex-wrap:wrap;color:darkyellow;"></div>`);
+            dom.append(`<div style="width:100%;height:50px;font-size:24px;">选定的物品：<span id="selectedItemName" style="color:darkgoldenrod;"></span>
+                <input id="selectedItemId" type="hidden" value="" />
+                数量：<input id="selectedCount" type="number" value="1" />
+                <button type="button">获取物品</button></div>`);
+            let box = $(`<div style="width:100%;height:800px;overflow-y:auto;display:flex;flex-wrap:wrap;align-content: flex-start;"></div>`);
+            dom.append(box);
+            GameData.Items[0] = { name: "全选", id: -1, description: "全部获取", note: "" };
+            for (let i = 0; i < GameData.Items.length; i++) {
+                let item = GameData.Items[i];
+                if (!item) continue;
+                if (!item.name) continue;
+                let fColor = "black";
+                if (item.name.includes("药") || item.name.includes("剂")) fColor = "darkgreen";
+                else if (item.name.includes("钥匙")) fColor = "orangered";
+                else if (item.name.includes("控制")) fColor = "darkred";
+
+                let title = `${item.description}_${item.note}`;
+                title = title.replace(/[>"]/g, "");
+                let itemBar = $(`<div class="item" title="${title}" style="min-width:186px;color:${fColor};text-align:center;font-size:24px;">${item.name}</div>`);
+                itemBar.click(function () {
+                    $("#selectedItemName").text(`${item.name} (${item.id})`);
+                    $("#selectedItemId").val(item.id);
+                });
+                box.append(itemBar);
+            }
+
+            dom.find("button").click(function () {
+                // ACTOR_COUNT = parseInt(dom.find("#actorCount").val());
+                ExecCMD({
+                    cmd: "Get",
+                    type: "Item",
+                    id: parseInt($("#selectedItemId").val()),
+                    count: parseInt($("#selectedCount").val()),
+                });
+                $("#TopWin").hide();
+            });
+            ShowTopWin("获取物品", dom);
+        }
+
+        /**
+         * 窗口：设置角色数量
+         */
+        function btSetActorCount() {
+            let dom = $(`
+                <div>请输入角色数量：<input id="actorCount" type="number" value="${ACTOR_COUNT}"">
+                    <button type="button">设置</button>
+                </div>
+            `);
+            dom.find("button").click(function () {
+                ACTOR_COUNT = parseInt(dom.find("#actorCount").val());
+                $("#TopWin").hide();
+            });
+            ShowTopWin("设置角色数量", dom, {
+                top: "35%",
+                left: "25%",
+                width: "50vw",
+                height: "30vh",
+            });
+        }
+
+        /**
+         * 显示顶部窗口
+         * @param {string} title 窗口标题
+         * @param {string} content 窗口内容
+         */
+        function ShowTopWin(title, content, options = {
+            top: "10%",
+            left: "25%",
+            width: "50vw",
+            height: "80vh",
+        }) {
+            $("#TopWinTitle").text(title);
+            $("#TopWinContent").empty().append(content);
+            $("#TopWin").css(options).show();
+        }
+    </script>
+</body>
+
+</html>
