@@ -39,7 +39,6 @@
             height: auto;
             border: 1px solid darkred;
             flex: 1;
-            overflow-y: auto;
         }
 
         .bar {
@@ -128,13 +127,23 @@
             margin: 5px 5px;
         }
 
-        #switchesInfo,
-        #variablesInfo {
+        #switchesInfo .itemBox,
+        #variablesInfo .itemBox {
             display: flex;
             flex-wrap: wrap;
             padding: 2px 15px;
             overflow-y: auto;
-            max-height: 92vh;
+        }
+
+        #switchesInfo,
+        #variablesInfo {
+            max-height: 89%;
+            overflow-y: auto;
+        }
+
+        .itemBox {
+            border-top: 1px solid rgb(90, 8, 8);
+            border-bottom: 1px solid rgb(90, 8, 8);
         }
 
         .col h4 {
@@ -185,7 +194,7 @@
         <h3 id="gameName"></h3>
         <div id="gameInfo">
             <!-- 第一列 -->
-            <div class="col" style="flex-grow: 0;flex-basis: min-content;">
+            <div class="col" style="flex-grow: 0;flex-basis: min-content;overflow-y: auto;">
                 <div id="actorInfo"></div>
                 <div id="playerInfo" class="box" style="width: 400px;">
                     <div id="coordinate">坐标：</div>
@@ -235,7 +244,7 @@
 
     <script type="template" id="actorInfoTemplate">
                 <div id="baseInfo_${actorIndex}" style="margin-bottom: 20px;">
-                    <div>
+<div>
                         <div id="actorLevel_${actorIndex}" style="float: right;margin-right: 20px;"></div>
                         <div id="actorName_${actorIndex}"></div>
                     </div>
@@ -249,7 +258,7 @@
                         </tr>
                         <tr>
                             <td>&nbsp;MP：</td>
-                            <td class="bar">
+<td class="bar">
                                 <div class="barValue" id="mp_${actorIndex}" style="background-color: blue;"></div>
                                 <div class="barValueText" id="mpTxt_${actorIndex}"></div>
                             </td>
@@ -274,12 +283,16 @@
         let GameName = null;
         let GameData = null; //游戏中$datak开头的数据
         let GameCacheData = {};
+        // 显示在顶部的变量和开关
+        let DataShowTop = {
+            var: new Set(),
+            switch: new Set()
+        };
         (function () {
             let socketClient = io();
             window.socketClient = socketClient;
 
             socketClient.on("GameEnd", (data) => {
-                //socketClient.emit("CHECK", data);
                 EndGame(data);
             });
 
@@ -287,7 +300,6 @@
                 SelectGame(data);
             });
             socketClient.on("Answer_Data", (data) => {
-                // console.log("[应答数据]：", data);
                 RenderData(data);
             })
 
@@ -358,7 +370,6 @@
             }
 
             function EndGame(gameName) {
-                return;
                 if (gameName !== GameName) return;
                 console.log("游戏下线：", GameName);
                 $("#loading").show();
@@ -367,6 +378,8 @@
                 GameName = null;
                 GameData = null;
                 GameCacheData = {};
+                DataShowTop.var.clear();
+                DataShowTop.switch.clear();
                 ConnectGame();
             }
 
@@ -411,8 +424,11 @@
             //检查缓存
             let cacheData = JSON.stringify(data.data);
             if (GameCacheData[data.type] === cacheData) return;//数据未改变，无需渲染
+            let oldData = JSON.parse(GameCacheData[data.type] || "[]");
             GameCacheData[data.type] = cacheData;//更新缓存
 
+
+            if (!data.data) return;
             switch (data.type) {
                 case "Actor":
                     RenderActor(data.data);
@@ -433,10 +449,10 @@
                     $("#coordinate").text(`坐标：(${data.data.x},${data.data.y})`);
                     break;
                 case "Variables":
-                    RenderVariables(data.data);
+                    RenderVariables(data.data, oldData);
                     break;
                 case "Switches":
-                    RenderSwitches(data.data);
+                    RenderSwitches(data.data, oldData);
                     break;
             }
         }
@@ -456,6 +472,7 @@
 
             for (let i = 0; i < data.length; i++) {
                 let data_i = data[i];
+                if (!data_i) continue;
                 let actorHtml = $(template.replace(/\${actorIndex}/g, i));
 
                 actorHtml.find(`#actorName_${i}`).text("　" + data_i._name);
@@ -520,36 +537,89 @@
             armorBag.html(bagHtml);
         }
 
-        /**
-         * 渲染变量数据
-         * @param {object} data 变量数据
-         */
-        function RenderVariables(data) {
+        function SetVarTop(i) {
+            DataShowTop.var.add(i, i);
+            let data = JSON.parse(GameCacheData.Variables || "[]");
+            RenderVariables(data, data);
+        }
+        function SetVarTopDown(i) {
+            DataShowTop.var.delete(i);
+            let data = JSON.parse(GameCacheData.Variables || "[]");
+            RenderVariables(data, data);
+        }
+
+        function RenderVariables(data, oldData) {
             if (!GameData?.Variables) return;
             let variablesBox = $("#variablesInfo");
             variablesBox.empty();
+            let top = $("<div class='topItem itemBox'></div>");
+            let itemBox = $("<div class='itemBox mainItemBox'></div>");
+
+            let Variables = GameData.Variables;
+            if (data.length > GameData.Variables.length)
+                Variables = GameData.Variables.concat(new Array(data.length - GameData.Variables.length).fill("未设定名字"));
 
             let bagHtml = "";
-            for (let key in data) {
-                if (!GameData.Variables[key]) continue;
-                let v = GameData.Variables[key];
-                bagHtml += `<div class="item showAction" style="border:1px solid pink" title="${key}" onclick="ClickVariable(${key})">${v} ：${data[key]}</div>`;
+            for (let [i, v] of DataShowTop.var.entries()) {
+                bagHtml += `<div class="item showAction" title="${i}" onclick="ClickVariable(${i})" ondblclick="SetVarTopDown(${i})">${Variables[i]} ：${data[i]}</div>`;
             }
-            variablesBox.html(bagHtml);
+            if (bagHtml != "") {
+                variablesBox.append(top);
+                top.html(bagHtml);
+            }
+            bagHtml = "";
+            for (let i = 0; i < Variables.length; i++) {
+                let v = Variables[i];
+                if (!v && !data[i]) continue;
+                let css = ``;
+                if (DataShowTop.var.has(i)) continue;
+                if (oldData && data[i] != oldData[i]) css = `style="background-color:darkred;"`;
+                bagHtml += `<div class="item showAction" ${css} title="${i}" onclick="ClickVariable(${i})" ondblclick="SetVarTop(${i})">${v} ：${data[i]}</div>`;
+            }
+            itemBox.html(bagHtml);
+            variablesBox.append(itemBox);
         }
 
-        function RenderSwitches(data) {
+        function SetSwitchTop(i) {
+            DataShowTop.switch.add(i, i);
+            let data = JSON.parse(GameCacheData.Switches || "[]");
+            RenderSwitches(data, data);
+        }
+        function SetSwitchTopDown(i) {
+            DataShowTop.switch.delete(i);
+            let data = JSON.parse(GameCacheData.Switches || "[]");
+            RenderSwitches(data, data);
+        }
+        function RenderSwitches(data, oldData) {
             if (!GameData?.Switches) return;
             let switchesBox = $("#switchesInfo");
             switchesBox.empty();
+            let top = $("<div class='topItem itemBox'></div>");
+            let itemBox = $("<div class='itemBox mainItemBox'></div>");
+
+            let Switches = GameData.Switches;
+            if (data.length > GameData.Switches.length)
+                Switches = GameData.Switches.concat(new Array(data.length - GameData.Switches.length).fill("未设定名字"));
 
             let bagHtml = "";
-            for (let key in data) {
-                if (!GameData.Switches[key]) continue;
-                let v = GameData.Switches[key];
-                bagHtml += `<div class="item showAction" title="${key}" onclick="ClickSwitch(${key})">${v} ：${data[key]}</div>`;
+            for (let [i, v] of DataShowTop.switch.entries()) {
+                bagHtml += `<div class="item showAction" title="${i}" onclick="ClickSwitch(${i})" ondblclick="SetSwitchTopDown(${i})"><b>${Switches[i]} ：${data[i]}</b></div>`;
             }
-            switchesBox.html(bagHtml);
+            if (bagHtml != "") {
+                switchesBox.append(top);
+                top.html(bagHtml);
+            }
+            bagHtml = "";
+            for (let i = 0; i < Switches.length; i++) {
+                let v = Switches[i];
+                if (!v && !data[i]) continue;
+                let css = ``;
+                if (DataShowTop.switch.has(i)) continue;
+                if (oldData && data[i] != oldData[i]) css = `style="background-color:darkred;"`;
+                bagHtml += `<div class="item showAction" ${css} title="${i}" onclick="ClickSwitch(${i})" ondblclick="SetSwitchTop(${i})"><b>${v} ：${data[i]}</b></div>`;
+            }
+            itemBox.html(bagHtml);
+            switchesBox.append(itemBox);
         }
 
 
@@ -563,11 +633,11 @@
         }
 
         function ClickVariable(index) {
-            alert(GameData.Variables[index]);
+            // alert(GameData.Variables[index]);
         }
 
         function ClickSwitch(index) {
-            alert(GameData.Switches[index]);
+            // alert(GameData.Switches[index]);
         }
 
         /**
