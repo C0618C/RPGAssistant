@@ -39,6 +39,7 @@
             height: auto;
             border: 1px solid darkred;
             flex: 1;
+            max-width: 45vw;
         }
 
         .bar {
@@ -146,6 +147,10 @@
             border-bottom: 1px solid rgb(90, 8, 8);
         }
 
+        .topItem .item {
+            border: 1px solid gold;
+        }
+
         .col h4 {
             text-align: center;
         }
@@ -181,8 +186,17 @@
             justify-content: center
         }
 
+        .TopWin #TopWinContent button {
+            font-size: 24px;
+            padding: 10px 20px;
+            background-color: darkred;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
         .TopWin #TopWinContent * {
-            font-size: 1.5em;
+            font-size: 24px;
         }
     </style>
 </head>
@@ -198,7 +212,7 @@
                 <div id="actorInfo"></div>
                 <div id="playerInfo" class="box" style="width: 400px;">
                     <div id="coordinate">坐标：</div>
-                    <div id="gold">金币：</div>
+                    <div id="gold">🪙金币：</div>
                 </div>
                 <div class="box">
                     <h5>背包</h5>
@@ -216,11 +230,12 @@
                         <button type="button" onclick="btGetWeapons()">获取武器</button>
                         <button type="button" onclick="btGetArmors()">获取防具</button>
                         <button type="button" onclick="btSetActorCount()">角色数量</button>
-                        <button type="button">移动</button>
+                        <button type="button" onclick="btSetPosition()">移动</button>
+                        <button type="button" onclick="btSetScale()">缩放</button>
                         <button type="button">习得技能</button>
                         <button type="button">查看CG</button>
-                        <button type="button">监控状态</button>
-                        <button type="button">监控变量</button>
+                        <button type="button">查看任务</button>
+                        <button type="button">查看当前地图交互点</button>
                     </div>
                 </div>
             </div>
@@ -237,14 +252,14 @@
 
     <div id="TopWin" class="TopWin">
         <div style="float:right;margin-top:15px;margin-right: 15px;font-size: 25px;cursor: pointer;"
-            onclick="$('#TopWin').hide()">X</div>
+            onclick="$('#TopWin').hide()">×</div>
         <h3 id="TopWinTitle">窗口标题</h3>
         <div id="TopWinContent"></div>
     </div>
 
     <script type="template" id="actorInfoTemplate">
                 <div id="baseInfo_${actorIndex}" style="margin-bottom: 20px;">
-<div>
+                    <div>
                         <div id="actorLevel_${actorIndex}" style="float: right;margin-right: 20px;"></div>
                         <div id="actorName_${actorIndex}"></div>
                     </div>
@@ -258,7 +273,7 @@
                         </tr>
                         <tr>
                             <td>&nbsp;MP：</td>
-<td class="bar">
+                            <td class="bar">
                                 <div class="barValue" id="mp_${actorIndex}" style="background-color: blue;"></div>
                                 <div class="barValueText" id="mpTxt_${actorIndex}"></div>
                             </td>
@@ -288,6 +303,16 @@
             var: new Set(),
             switch: new Set()
         };
+        // 缩放选项
+        const SCALE_OPTIONS = [
+            { value: 1.0, label: "100%" },
+            { value: 1.25, label: "125%" },
+            { value: 1.5, label: "150%" },
+            { value: 2.0, label: "200%" },
+            { value: 2.15, label: "215%" },
+            { value: 2.25, label: "225%" },
+            { value: 2.5, label: "250%" }
+        ];
         (function () {
             let socketClient = io();
             window.socketClient = socketClient;
@@ -443,7 +468,7 @@
                     RenderWeapon(data.data);
                     break;
                 case "Gold":
-                    $("#gold").text(`金币：${data.data || 0}`);
+                    $("#gold").text(`🪙金币：${data.data || 0}`);
                     break;
                 case "Coordinate":
                     $("#coordinate").text(`坐标：(${data.data.x},${data.data.y})`);
@@ -786,6 +811,105 @@
         }
 
         /**
+         * 窗口：设置缩放值
+         */
+        function btSetScale() {
+            let dom = $(`
+                <div style="width:100%;height:100%;padding:20px;color:darkyellow;">
+                    <div style="margin-bottom:20px;">
+                        <label for="scaleSelect">选择缩放比例：</label>
+                        <select id="scaleSelect" style="padding:5px;margin-left:10px;color:darkred;">
+                            ${SCALE_OPTIONS.map(option =>
+                `<option value="${option.value}">${option.label}</option>`
+            ).join('')}
+                        </select>
+                    </div>
+                    <div style="margin-bottom:20px;">
+                        <label for="customScale">或输入自定义缩放值：</label>
+                        <input id="customScale" type="number" step="0.1" min="1.0" max="5.0" 
+                               style="padding:5px;margin-left:10px;width:80px;color:darkred;" 
+                               placeholder="1.0">
+                    </div>
+                    <div style="text-align:center;">
+                        <button type="button">
+                            应用缩放
+                        </button>
+                    </div>
+                </div>
+            `);
+
+            // 当下拉选择改变时，更新自定义输入框
+            dom.find("#scaleSelect").change(function () {
+                const selectedValue = $(this).val();
+                dom.find("#customScale").val(selectedValue);
+            });
+
+            // 当自定义输入框改变时，更新下拉选择
+            dom.find("#customScale").on('input', function () {
+                const customValue = parseFloat($(this).val());
+                const select = dom.find("#scaleSelect");
+                const option = SCALE_OPTIONS.find(opt => opt.value === customValue);
+
+                if (option) {
+                    select.val(customValue);
+                } else {
+                    select.val(''); // 清除选择，表示自定义值
+                }
+            });
+
+            dom.find("button").click(function () {
+                let scaleValue = parseFloat(dom.find("#customScale").val());
+
+                // 验证输入值
+                if (isNaN(scaleValue) || scaleValue < 0.1 || scaleValue > 5.0) {
+                    alert("请输入有效的缩放值（1.0 - 5.0）");
+                    return;
+                }
+
+                // 发送缩放命令
+                ExecCMD({
+                    cmd: "Scale",
+                    scale: scaleValue
+                });
+
+                $("#TopWin").hide();
+            });
+
+            ShowTopWin("设置缩放", dom, {
+                top: "30%",
+                left: "30%",
+                width: "40vw",
+                height: "40vh",
+            });
+        }
+
+        function btSetPosition() {
+            let coordinate = JSON.parse(GameCacheData["Coordinate"] || "{}");
+            let dom = $(`
+                <div>请输入位置：<br/>
+                    X：<input id="positionX" type="text" value="${coordinate.x}"><br/>
+                    Y：<input id="positionY" type="text" value="${coordinate.y}">
+                    <br/><button type="button">设置</button>
+                </div>
+            `);
+            dom.find("button").click(function () {
+                ExecCMD({
+                    cmd: "Move",
+                    type: "Position",
+                    x: parseInt(dom.find("#positionX").val()),
+                    y: parseInt(dom.find("#positionY").val()),
+                });
+                $("#TopWin").hide();
+            });
+            ShowTopWin("设置位置", dom, {
+                top: "35%",
+                left: "25%",
+                width: "50vw",
+                height: "30vh",
+            });
+        }
+
+        /**z
          * 显示顶部窗口
          * @param {string} title 窗口标题
          * @param {string} content 窗口内容

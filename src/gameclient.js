@@ -226,6 +226,14 @@ function ExecCMD(command) {
     case "Get":
       Get(command);
       break;
+    case "Set":
+      break;
+    case "Move":
+      Move(command);
+      break;
+    case "Scale":
+      Scale(command);      // 缩放游戏界面
+      break;
   }
 }
 
@@ -260,4 +268,27 @@ function Get(command) {
       $gameParty.gainItem(item[command.id], command.count);
     }
   }
+}
+
+/**
+ * 移动游戏角色
+ * @param {*} command 
+ */
+function Move(command) {
+  if (!command.x || !command.y) return;
+  $gamePlayer._x = command.x;
+  $gamePlayer._y = command.y;
+}
+
+/**
+ * 缩放游戏界面
+ * @param {*} command 
+ */
+function Scale(command) {
+  if (!command?.scale) return;
+  document.body.style.overflow = "hidden"
+  document.body.style.height = "100vh"
+  document.body.style.transition = "transform 0.3s ease"
+  document.body.style.transformOrigin = "center"
+  document.body.style.transform = `scale(${command.scale})`
 }
