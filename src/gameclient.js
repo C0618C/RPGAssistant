@@ -59,6 +59,15 @@
   element.addEventListener('click', () => {
     hasInit = false;
     Init();
+    element.style.color = "white";
+  });
+  element.addEventListener("dblclick", () => {
+    let gameName = $dataSystem.gameTitle;
+    socketClient.emit("GameStart_Lock", {
+      gameName: gameName,
+      clientID: socketClient.id,
+    });
+    element.style.color = "darkred";
   });
   // 将元素添加到文档中
   document.body.appendChild(element);
@@ -117,6 +126,17 @@ function AnswerData(data, socketClient) {
       break;
     case "Switches":
       data.data = GetGameInfo_Switches();
+      break;
+    case "CurEvents":
+      data.data = [];
+      for (let event of $dataMap.events)
+        if (event) data.data.push({
+          id: event.id,
+          name: event.name,
+          note: event.note,
+          x: event.x,
+          y: event.y,
+        });
       break;
   }
   socketClient.emit('Answer_Data', data);
@@ -227,6 +247,7 @@ function ExecCMD(command) {
       Get(command);
       break;
     case "Set":
+      Set(command);
       break;
     case "Move":
       Move(command);
@@ -267,6 +288,15 @@ function Get(command) {
     if (item[command.id].name) {
       $gameParty.gainItem(item[command.id], command.count);
     }
+  }
+}
+
+function Set(command) {
+  if (!command.type) return;
+  switch (command.type) {
+    case "Gold":
+      $gameParty._gold = command.value;
+      break;
   }
 }
 

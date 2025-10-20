@@ -232,10 +232,11 @@
                         <button type="button" onclick="btSetActorCount()">角色数量</button>
                         <button type="button" onclick="btSetPosition()">移动</button>
                         <button type="button" onclick="btSetScale()">缩放</button>
+                        <button type="button" onclick="btSetGold()">获得金币</button>
                         <button type="button">习得技能</button>
-                        <button type="button">查看CG</button>
+                        <button type="button">查看所有地图信息</button>
                         <button type="button">查看任务</button>
-                        <button type="button">查看当前地图交互点</button>
+                        <button type="button" onclick="btShowEvents()">查看当前地图交互点</button>
                     </div>
                 </div>
             </div>
@@ -399,6 +400,7 @@
                 console.log("游戏下线：", GameName);
                 $("#loading").show();
                 $("#main").hide();
+                $("#TopWin").hide();
                 GameId = null;
                 GameName = null;
                 GameData = null;
@@ -421,6 +423,7 @@
          */
         function GetData(dataName, { handleType, key, format } = { handleType: "Render", key: "" }, defaultData = {}) {
             let data = {
+                gameId: GameId,
                 action: "GetData",
                 type: dataName,
                 handleType: handleType,    //处理数据的方式，Render：渲染数据，Cache：缓存数据
@@ -437,6 +440,15 @@
                 ...data
             }
             window.socketClient.emit("ExecCMD", cmd);
+        }
+
+        function MoveTo(x, y) {
+            ExecCMD({
+                cmd: "Move",
+                type: "Position",
+                x: x,
+                y: y,
+            });
         }
 
         /**
@@ -478,6 +490,9 @@
                     break;
                 case "Switches":
                     RenderSwitches(data.data, oldData);
+                    break;
+                case "CurEvents":
+                    ShowCurEvents(data.data);
                     break;
             }
         }
@@ -893,12 +908,7 @@
                 </div>
             `);
             dom.find("button").click(function () {
-                ExecCMD({
-                    cmd: "Move",
-                    type: "Position",
-                    x: parseInt(dom.find("#positionX").val()),
-                    y: parseInt(dom.find("#positionY").val()),
-                });
+                MoveTo(parseInt(dom.find("#positionX").val()), parseInt(dom.find("#positionY").val()));
                 $("#TopWin").hide();
             });
             ShowTopWin("设置位置", dom, {
@@ -907,6 +917,45 @@
                 width: "50vw",
                 height: "30vh",
             });
+        }
+
+        function btSetGold() {
+            let goldCount = JSON.parse(GameCacheData["Gold"] || "0");
+            let dom = $(`
+                <div>请输入金币数量：<input id="goldCount" type="number" value="${goldCount}"">
+                    <button type="button">设置</button>
+                </div>
+            `);
+            dom.find("button").click(function () {
+                goldCount = parseInt(dom.find("#goldCount").val());
+                ExecCMD({
+                    cmd: "Set",
+                    type: "Gold",
+                    value: goldCount,
+                });
+                $("#TopWin").hide();
+            });
+            ShowTopWin("设置金币数量", dom, {
+                top: "35%",
+                left: "25%",
+                width: "50vw",
+                height: "30vh",
+            });
+        }
+
+        /**
+         * 显示当前地图的可交互对象
+         */
+        function btShowEvents() {
+            GetData("CurEvents");
+        }
+        function ShowCurEvents(events) {
+            let dom = $(`
+                <div style="display:flex;flex-wrap:wrap;">
+                    ${events.map(event => `<button type="button" style="margin:5px 5px;" onclick="MoveTo(${event.x}, ${event.y})" title="${event.note}">${event.name}：${event.x}，${event.y}</button>`).join("")}
+                </div>
+            `);
+            ShowTopWin("当前地图可交互对象", dom);
         }
 
         /**z

@@ -20,14 +20,15 @@ function InitDataLine_AskData(client, server) {
             //     client.emit('Answer_Data', data);
         }
 
-        if (data.gameid) {
-            let gameClient = server.dataServerList.get(data.gameid);
+        if (data.gameId) {
+            let gameClient = server.dataServerList.get(data.gameId);
             if (gameClient) {
                 gameClient.emit("Ask_Data", data);
             }
         } else {
             server.dataServerList.forEach((gameClient) => {
-                gameClient.emit("Ask_Data", data);
+                if (data.gameId == gameClient.id) gameClient.emit("Ask_Data", data);
+                //console.log("游戏端是否连着：", gameClient.connected, data)
             });
         }
 
@@ -71,8 +72,20 @@ function InitCollecter(client, server) {
             server.dataServerList.set(client.id, client);
     });
 
+    client.on("GameStart_Lock", (data) => {
+        server.GameLockId.add(data.clientID);
+        if (!client.gameName) client.gameName = data.gameName;
+        if (!server.dataServerList.has(client.id))
+            server.dataServerList.set(client.id, client);
+    })
+
     //注销
     client.on("disconnect", (data) => {
+        if (server.GameLockId.has(client.id)) {
+            //server.GameLockId.delete(client.id);
+            console.log("已锁定游戏尝试下线，已拒绝：", client.id);
+            return;
+        }
         console.log("客户端离线：", client.id);
         if (server.dataServerList.has(client.id)) {
             let gameName = server.dataServerList.get(client.id)?.gameName;
@@ -115,6 +128,7 @@ function InitCheck(client, server) {
  */
 exports.InitServer = function (io) {
     if (!io.dataServerList) io.dataServerList = new Map();    //用于记录数据采集端
+    if (!io.GameLockId) io.GameLockId = new Set();    //记录锁在线的游戏，用于应付部分游戏自动下线的问题
 
     //当各种客户端连上服务器
     io.on('connection', function (socket) {
