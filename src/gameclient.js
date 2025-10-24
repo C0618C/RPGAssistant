@@ -138,6 +138,12 @@ function AnswerData(data, socketClient) {
           y: event.y,
         });
       break;
+    case "Quests":
+      data.data = $gameQuests || null;
+      break;
+    case "MapInfos":
+      data.data = $dataMapInfos || null;
+      break;
   }
   socketClient.emit('Answer_Data', data);
 }
@@ -180,11 +186,15 @@ function GetGameInfo_Item() {
   return result;
 }
 
+/**
+ * 取得武器列表
+ * @returns 
+ */
 function GetGameInfo_Weapon() {
-  if (!$gameParty && !$dataArmors) return null;
+  if (!$gameParty && !$dataWeapons) return null;//TODO: 
   let result = [];
   for (let id in $gameParty?._weapons) result.push({
-    armor: $dataArmors[id],
+    weapon: $dataWeapons[id],
     count: $gameParty._weapons[id]
   });
   return result;
@@ -244,13 +254,16 @@ function ExecCMD(command) {
   //console.debug("ExecCMD", command);
   switch (command.cmd) {
     case "Get":
-      Get(command);
+      GetGameData(command);
       break;
     case "Set":
-      Set(command);
+      SetGameData(command);
       break;
     case "Move":
       Move(command);
+      break;
+    case "Transfer":    //传送
+      Transfer(command);
       break;
     case "Scale":
       Scale(command);      // 缩放游戏界面
@@ -262,7 +275,7 @@ function ExecCMD(command) {
  * 获取指定类型的物品
  * @param {*} command 
  */
-function Get(command) {
+function GetGameData(command) {
   if (!command.type) return;
   let item = null;
 
@@ -291,7 +304,7 @@ function Get(command) {
   }
 }
 
-function Set(command) {
+function SetGameData(command) {
   if (!command.type) return;
   switch (command.type) {
     case "Gold":
@@ -321,4 +334,14 @@ function Scale(command) {
   document.body.style.transition = "transform 0.3s ease"
   document.body.style.transformOrigin = "center"
   document.body.style.transform = `scale(${command.scale})`
+}
+
+/**
+ * 传送到地图指定位置
+ * @param {*} command 
+ * @returns 
+ */
+function Transfer(command) {
+  if (!command.id || !command.x || !command.y) return;
+  $gamePlayer?.reserveTransfer(parseInt(command.id), parseInt(command.x), parseInt(command.y), parseInt(command.direction), parseInt(command.fadeType));
 }

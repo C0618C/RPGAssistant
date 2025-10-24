@@ -234,8 +234,8 @@
                         <button type="button" onclick="btSetScale()">缩放</button>
                         <button type="button" onclick="btSetGold()">获得金币</button>
                         <button type="button">习得技能</button>
-                        <button type="button">查看所有地图信息</button>
-                        <button type="button">查看任务</button>
+                        <button type="button" onclick="btShowMapInfo()">查看所有地图信息</button>
+                        <button type="button" onclick="btCheckQuests()">查看任务</button>
                         <button type="button" onclick="btShowEvents()">查看当前地图交互点</button>
                     </div>
                 </div>
@@ -421,7 +421,7 @@
          * @param {string} options.key 数据标识，仅用于UI区分数据类型，如"cache"则执行数据缓存。
          * @param {string} options.format 获取数据的格式/途径
          */
-        function GetData(dataName, { handleType, key, format } = { handleType: "Render", key: "" }, defaultData = {}) {
+        function GetData(dataName, { handleType, key, format, cache } = { handleType: "Render", key: "", cache: true }, defaultData = {}) {
             let data = {
                 gameId: GameId,
                 action: "GetData",
@@ -442,12 +442,21 @@
             window.socketClient.emit("ExecCMD", cmd);
         }
 
-        function MoveTo(x, y) {
-            ExecCMD({
+        function MoveTo(x, y, mapId = null) {
+            if (!mapId) ExecCMD({
                 cmd: "Move",
                 type: "Position",
                 x: x,
                 y: y,
+            });
+            else ExecCMD({
+                cmd: "Transfer",
+                type: "NewMap",
+                id: mapId,
+                x: x,
+                y: y,
+                direction: 0,
+                fadeType: 0,
             });
         }
 
@@ -458,12 +467,14 @@
         function RenderData(data) {
             if (data.handleType === "Cache") return CacheData(data);//仅需缓存数据，无需渲染
 
+            let oldData = [];
             //检查缓存
-            let cacheData = JSON.stringify(data.data);
-            if (GameCacheData[data.type] === cacheData) return;//数据未改变，无需渲染
-            let oldData = JSON.parse(GameCacheData[data.type] || "[]");
-            GameCacheData[data.type] = cacheData;//更新缓存
-
+            if (data.cache) {
+                let cacheData = JSON.stringify(data.data);
+                if (GameCacheData[data.type] === cacheData) return;//数据未改变，无需渲染
+                oldData = JSON.parse(GameCacheData[data.type] || "[]");
+                GameCacheData[data.type] = cacheData;//更新缓存
+            }
 
             if (!data.data) return;
             switch (data.type) {
@@ -493,6 +504,12 @@
                     break;
                 case "CurEvents":
                     ShowCurEvents(data.data);
+                    break;
+                case "Quests":
+                    ShowQuests(data.data);
+                    break;
+                case "MapInfos":
+                    ShowMapInfo(data.data);
                     break;
             }
         }
@@ -526,10 +543,10 @@
                 if (!data_i._maxExp) actorHtml.find(`#exp_${i}`).closest("tr").hide();
 
                 //设置状态
-                if (data_i._states && GameData?.dataStates) {
+                if (data_i._states && GameData?.States) {
                     let stateBox = actorHtml.find(`#actorStates_${i}`);
                     for (let state of data_i._states) {
-                        stateBox.append(`<div class="stateTag" title="${GameData.dataStates[state].note}">${GameData.dataStates[state].name}</div>`);
+                        stateBox.append(`<div class="stateTag" title="${GameData.States[state].note}">${GameData.States[state].name}</div>`);
                     }
                 }
 
@@ -572,7 +589,7 @@
             let bagHtml = "";
             for (let i = 0; i < data.length; i++) {
                 let data_i = data[i];
-                bagHtml += `<div class="weapon" title="${data_i.armor.description}_${data_i.armor.note}">${data_i.armor.name} x ${data_i.count}</div>`;
+                bagHtml += `<div class="weapon" title="${data_i?.weapon?.description}_${data_i?.weapon?.note}">${data_i?.weapon?.name || ""} x ${data_i.count}</div>`;
             }
             armorBag.html(bagHtml);
         }
@@ -947,7 +964,7 @@
          * 显示当前地图的可交互对象
          */
         function btShowEvents() {
-            GetData("CurEvents");
+            GetData("CurEvents", { cache: false });
         }
         function ShowCurEvents(events) {
             let dom = $(`
@@ -956,6 +973,36 @@
                 </div>
             `);
             ShowTopWin("当前地图可交互对象", dom);
+        }
+
+        function btCheckQuests() {
+            GetData("Quests", { cache: false });
+        }
+        function ShowQuests(quests) {
+            if (quests?.length == 0) {
+                alert("没有任务系统");
+                return;
+            }
+            let dom = $(`
+                <div style="display:flex;flex-wrap:wrap;">
+                </div>
+            `);
+            console.log(quests);
+            ShowTopWin("任务列表", dom);
+        }
+
+        function btShowMapInfo() {
+            if (GameCacheData["MapInfos"]) ShowMapInfo(JSON.parse(GameCacheData["MapInfos"]));
+            else GetData("MapInfos");
+        }
+        function ShowMapInfo(mapInfo) {
+            let dom = $(`<div style="display:flex;flex-wrap:wrap;align-content: flex-start;overflow-y:auto;height:800px;"></div>`);//$gamePlayer.reserveTransfer(mapId, x, y, direction, fadeType)
+            for (let i = 0; i < mapInfo.length; i++) {
+                let mapInfo_i = mapInfo[i];
+                if (!mapInfo_i) continue;
+                dom.append(`<button type="button" style="margin:5px 5px;" onclick="MoveTo(${mapInfo_i.x}, ${mapInfo_i.y},${mapInfo_i.id})">${mapInfo_i.parentId ? mapInfo[mapInfo_i.parentId]?.name + "/" : ""}${mapInfo_i.name}</button>`);
+            }
+            ShowTopWin("所有注册的地图", dom);
         }
 
         /**z
