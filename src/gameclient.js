@@ -99,51 +99,56 @@ function AnswerData(data, socketClient) {
 
   //下面是经过优化处理的定制数据
   data.data = null;
-  switch (data.type) {
-    case "Item":
-      data.data = GetGameInfo_Item();
-      break;
-    case "Actor":
-      data.data = GetGameActor_Info(data, data.format);
-      break;
-    case "Armor":
-      data.data = GetGameInfo_Armor();
-      break;
-    case "Weapon":
-      data.data = GetGameInfo_Weapon();
-      break;
-    case "Gold":
-      data.data = $gameParty?._gold;
-      break;
-    case "Coordinate":
-      data.data = {
-        x: $gamePlayer?._x,
-        y: $gamePlayer?._y,
-      };
-      break;
-    case "Variables":
-      data.data = GetGameInfo_Variables();
-      break;
-    case "Switches":
-      data.data = GetGameInfo_Switches();
-      break;
-    case "CurEvents":
-      data.data = [];
-      for (let event of $dataMap.events)
-        if (event) data.data.push({
-          id: event.id,
-          name: event.name,
-          note: event.note,
-          x: event.x,
-          y: event.y,
-        });
-      break;
-    case "Quests":
-      data.data = $gameQuests || null;
-      break;
-    case "MapInfos":
-      data.data = $dataMapInfos || null;
-      break;
+  try {
+    switch (data.type) {
+      case "Item":
+        data.data = GetGameInfo_Item();
+        break;
+      case "Actor":
+        data.data = GetGameActor_Info(data, data.format);
+        break;
+      case "Armor":
+        data.data = GetGameInfo_Armor();
+        break;
+      case "Weapon":
+        data.data = GetGameInfo_Weapon();
+        break;
+      case "Gold":
+        data.data = $gameParty?._gold;
+        break;
+      case "Coordinate":
+        data.data = {
+          x: $gamePlayer?._x,
+          y: $gamePlayer?._y,
+        };
+        break;
+      case "Variables":
+        data.data = GetGameInfo_Variables();
+        break;
+      case "Switches":
+        data.data = GetGameInfo_Switches();
+        break;
+      case "CurEvents":
+        data.data = [];
+        for (let event of $dataMap.events)
+          if (event) data.data.push({
+            id: event.id,
+            name: event.name,
+            note: event.note,
+            x: event.x,
+            y: event.y,
+          });
+        break;
+      case "Quests":
+        data.data = $gameQuests || null;
+        break;
+      case "MapInfos":
+        data.data = $dataMapInfos || null;
+        break;
+    }
+  } catch (err) {
+    // console.error("AnswerData::", err);
+    data.err = err;
   }
   socketClient.emit('Answer_Data', data);
 }
@@ -309,6 +314,12 @@ function SetGameData(command) {
   switch (command.type) {
     case "Gold":
       $gameParty._gold = command.value;
+      break;
+    case "Variable":
+      $gameVariables.setValue(command.id, command.value);
+      break;
+    case "Switch":
+      $gameSwitches.setValue(command.id, command.value);
       break;
   }
 }

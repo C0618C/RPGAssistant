@@ -104,6 +104,7 @@
             border-radius: 5px;
             background-color: #eee;
             color: blueviolet;
+            user-select: none; 
         }
 
         .armor {
@@ -429,6 +430,7 @@
                 handleType: handleType,    //处理数据的方式，Render：渲染数据，Cache：缓存数据
                 format: format,          //获取数据的格式/途径
                 key: key,                    //数据标识，用于区分同类型、不同格式的数据
+                cache: cache,       //UI是否缓存数据
                 ...defaultData
             };
 
@@ -476,7 +478,7 @@
                 GameCacheData[data.type] = cacheData;//更新缓存
             }
 
-            if (!data.data) return;
+            if (!data.data && !data.err) return;
             switch (data.type) {
                 case "Actor":
                     RenderActor(data.data);
@@ -506,7 +508,7 @@
                     ShowCurEvents(data.data);
                     break;
                 case "Quests":
-                    ShowQuests(data.data);
+                    ShowQuests(data.data, data.err);
                     break;
                 case "MapInfos":
                     ShowMapInfo(data.data);
@@ -618,7 +620,7 @@
 
             let bagHtml = "";
             for (let [i, v] of DataShowTop.var.entries()) {
-                bagHtml += `<div class="item showAction" title="${i}" onclick="ClickVariable(${i})" ondblclick="SetVarTopDown(${i})">${Variables[i]} ：${data[i]}</div>`;
+                bagHtml += `<div class="item showAction" title="${i}" onclick="ClickVariable(${i},'${data[i]}')" oncontextmenu="SetVarTopDown(${i});return false;">${Variables[i]} ：${data[i]}</div>`;
             }
             if (bagHtml != "") {
                 variablesBox.append(top);
@@ -631,7 +633,7 @@
                 let css = ``;
                 if (DataShowTop.var.has(i)) continue;
                 if (oldData && data[i] != oldData[i]) css = `style="background-color:darkred;"`;
-                bagHtml += `<div class="item showAction" ${css} title="${i}" onclick="ClickVariable(${i})" ondblclick="SetVarTop(${i})">${v} ：${data[i]}</div>`;
+                bagHtml += `<div class="item showAction" ${css} title="${i}" onclick="ClickVariable(${i},'${data[i]}')" oncontextmenu="SetVarTop(${i});return false;">${v} ：${data[i]}</div>`;
             }
             itemBox.html(bagHtml);
             variablesBox.append(itemBox);
@@ -660,7 +662,7 @@
 
             let bagHtml = "";
             for (let [i, v] of DataShowTop.switch.entries()) {
-                bagHtml += `<div class="item showAction" title="${i}" onclick="ClickSwitch(${i})" ondblclick="SetSwitchTopDown(${i})"><b>${Switches[i]} ：${data[i]}</b></div>`;
+                bagHtml += `<div class="item showAction" title="${i}" onclick="ClickSwitch(${i})" oncontextmenu="SetSwitchTopDown(${i});return false;"><b>${Switches[i]} ：${data[i]}</b></div>`;
             }
             if (bagHtml != "") {
                 switchesBox.append(top);
@@ -673,7 +675,7 @@
                 let css = ``;
                 if (DataShowTop.switch.has(i)) continue;
                 if (oldData && data[i] != oldData[i]) css = `style="background-color:darkred;"`;
-                bagHtml += `<div class="item showAction" ${css} title="${i}" onclick="ClickSwitch(${i})" ondblclick="SetSwitchTop(${i})"><b>${v} ：${data[i]}</b></div>`;
+                bagHtml += `<div class="item showAction" ${css} title="${i}" onclick="ClickSwitch(${i})" oncontextmenu="SetSwitchTop(${i});return false;"><b>${v} ：${data[i]}</b></div>`;
             }
             itemBox.html(bagHtml);
             switchesBox.append(itemBox);
@@ -689,12 +691,26 @@
             // console.log("缓存数据：", data);
         }
 
-        function ClickVariable(index) {
+        function ClickVariable(index, data) {
             // alert(GameData.Variables[index]);
+            SetGameValue({
+                id:index,
+                name: GameData.Variables[index],
+                value: data,
+                type: "Variable",
+                showType: "游戏变量",
+            })
         }
 
-        function ClickSwitch(index) {
+        function ClickSwitch(index, data) {
             // alert(GameData.Switches[index]);
+            SetGameValue({
+                id:index,
+                name: GameData.Switches[index],
+                value: data,
+                type: "Switch",
+                showType: "状态开关",
+            })
         }
 
         /**
@@ -725,7 +741,6 @@
             }
 
             dom.find("button").click(function () {
-                // ACTOR_COUNT = parseInt(dom.find("#actorCount").val());
                 ExecCMD({
                     cmd: "Get",
                     type: "Armor",
@@ -968,29 +983,32 @@
         }
         function ShowCurEvents(events) {
             let dom = $(`
-                <div style="display:flex;flex-wrap:wrap;">
+                <div style="display:flex;flex-wrap:wrap;align-content: flex-start;overflow-y:auto;height:800px;">
                     ${events.map(event => `<button type="button" style="margin:5px 5px;" onclick="MoveTo(${event.x}, ${event.y})" title="${event.note}">${event.name}：${event.x}，${event.y}</button>`).join("")}
                 </div>
             `);
             ShowTopWin("当前地图可交互对象", dom);
         }
 
+        /**
+         * 检查任务系统
+         */
         function btCheckQuests() {
             GetData("Quests", { cache: false });
         }
-        function ShowQuests(quests) {
-            if (quests?.length == 0) {
+        function ShowQuests(quests, err) {
+            if (quests?.length == 0 || err) {
                 alert("没有任务系统");
                 return;
             }
-            let dom = $(`
-                <div style="display:flex;flex-wrap:wrap;">
-                </div>
-            `);
+            let dom = $(`<div style="display:flex;flex-wrap:wrap;align-content: flex-start;overflow-y:auto;height:800px;"></div>`);
             console.log(quests);
             ShowTopWin("任务列表", dom);
         }
 
+        /**
+         * 显示所有注册的地图
+         */
         function btShowMapInfo() {
             if (GameCacheData["MapInfos"]) ShowMapInfo(JSON.parse(GameCacheData["MapInfos"]));
             else GetData("MapInfos");
@@ -1005,6 +1023,47 @@
             ShowTopWin("所有注册的地图", dom);
         }
 
+        /**
+         * 设置游戏数据
+         * @param {object} option 选项
+         * @param {string} option.name 数据名称
+         * @param {string} option.value 数据值
+         * @param {string} option.type 数据类型
+         */
+        function SetGameValue(option) {
+            let dom = $(`<div><table><tr>
+                <td>${option.name}：</td><td><input id="tempValue" type="text" value="${option.value}""></td></tr>
+                <tr><td>数据类型：</td><td>
+                    <input type="radio" name="dataType" value="Number" id="dataTypeNumber"><label for="dataTypeNumber">数字</label>
+                    <input type="radio" name="dataType" value="String" id="dataTypeString"><label for="dataTypeString">字符串</label>
+                    <input type="radio" name="dataType" value="Boolean" ${option.type == "Switch" ? "checked" : ""} id="dataTypeBoolean">
+                    <label for="dataTypeBoolean">布尔值</label>
+                </td></tr>
+                <tr><td></td><td>
+                    <button type="button">设置</button>
+                </td></tr>
+            </table></div>`);
+            dom.find("button").click(function () {
+                let dataType = dom.find("input[name='dataType']:checked").val();
+                let value = dom.find("#tempValue").val();
+                if (dataType == "Number") value = parseInt(value);
+                else if (dataType == "Boolean") value = parseBoolean(value);
+
+                ExecCMD({
+                    cmd: "Set",
+                    type: option.type,
+                    value: value,
+                    id: option.id,
+                });
+                $("#TopWin").hide();
+            }); 
+            ShowTopWin(`设置${option.showType} - 《${option.name}》`, dom, {
+                top: "35%",
+                left: "25%",
+                width: "50vw",
+                height: "40vh",
+            });
+        }
         /**z
          * 显示顶部窗口
          * @param {string} title 窗口标题
