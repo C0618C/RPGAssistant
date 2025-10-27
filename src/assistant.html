@@ -104,7 +104,7 @@
             border-radius: 5px;
             background-color: #eee;
             color: blueviolet;
-            user-select: none; 
+            user-select: none;
         }
 
         .armor {
@@ -199,6 +199,10 @@
         .TopWin #TopWinContent * {
             font-size: 24px;
         }
+
+        .checked::after {
+            content: '✅';
+        }
     </style>
 </head>
 
@@ -235,7 +239,7 @@
                         <button type="button" onclick="btSetScale()">缩放</button>
                         <button type="button" onclick="btSetGold()">获得金币</button>
                         <button type="button">习得技能</button>
-                        <button type="button" onclick="btShowMapInfo()">查看所有地图信息</button>
+                        <button type="button" onclick="btShowMapInfo()">🗺查看所有地图信息</button>
                         <button type="button" onclick="btCheckQuests()">查看任务</button>
                         <button type="button" onclick="btShowEvents()">查看当前地图交互点</button>
                     </div>
@@ -298,8 +302,8 @@
         // 全局系统变量
         let GameId = null;
         let GameName = null;
-        let GameData = null; //游戏中$datak开头的数据
-        let GameCacheData = {};
+        let GameData = null;        //游戏中$datak开头的数据
+        let GameCacheData = {};        //游戏动态数据最新版本缓存
         // 显示在顶部的变量和开关
         let DataShowTop = {
             var: new Set(),
@@ -378,6 +382,8 @@
                     GetData("Items", { handleType: "Cache" }, { varName: "$dataItems" });
                     GetData("Weapons", { handleType: "Cache" }, { varName: "$dataWeapons" });
                     GetData("Armors", { handleType: "Cache" }, { varName: "$dataArmors" });
+                    GetData("Quests", { handleType: "Cache" }, { varName: "$dataQuests" });
+                    GetData("Actors", { handleType: "Cache" }, { varName: "$dataActors" });
 
                     setTimeout(Update, 1000);
                 }
@@ -567,7 +573,7 @@
             let bagHtml = "";
             for (let i = 0; i < data.length; i++) {
                 let data_i = data[i];
-                bagHtml += `<div class="item" title="${data_i.item.description}_${data_i.item.note}">${data_i.item.name} x ${data_i.count}</div>`;
+                bagHtml += `<div class="item" title="${stringFormat(data_i.item.description, false)}_${data_i.item.note}">${data_i.item.name} x ${data_i.count}</div>`;
             }
             itemBag.html(bagHtml);
         }
@@ -694,7 +700,7 @@
         function ClickVariable(index, data) {
             // alert(GameData.Variables[index]);
             SetGameValue({
-                id:index,
+                id: index,
                 name: GameData.Variables[index],
                 value: data,
                 type: "Variable",
@@ -705,7 +711,7 @@
         function ClickSwitch(index, data) {
             // alert(GameData.Switches[index]);
             SetGameValue({
-                id:index,
+                id: index,
                 name: GameData.Switches[index],
                 value: data,
                 type: "Switch",
@@ -994,16 +1000,99 @@
          * 检查任务系统
          */
         function btCheckQuests() {
-            GetData("Quests", { cache: false });
-        }
-        function ShowQuests(quests, err) {
-            if (quests?.length == 0 || err) {
+            if (!GameData["Quests"]) {
                 alert("没有任务系统");
                 return;
             }
-            let dom = $(`<div style="display:flex;flex-wrap:wrap;align-content: flex-start;overflow-y:auto;height:800px;"></div>`);
-            console.log(quests);
-            ShowTopWin("任务列表", dom);
+            GetData("Quests", { cache: false });
+        }
+        function ShowQuests(quests, err) {
+            if (quests?.data.length == 0 || err) {
+                alert("没有任务系统");
+                return;
+            }
+            let dom = $(`<div style="display:flex;flex-wrap:wrap;align-content: flex-start;overflow-y:auto;height:800px;width:100%"></div>`);
+
+            //任务线按钮
+            let questLine = GameData["Quests"][0];  //任务线序列
+            let qLDom = $(`<div style="display:flex;flex-wrap:no-wrap;align-content: flex-start;overflow-y:auto;"></div>`);
+            //任务列表
+            let qBody = $(`<div style="display:flex;flex-wrap:wrap;align-content: flex-start;overflow-y:auto;width:100%"></div>`);
+            let qItemDom = $(`<div style="min-height:500px;overflow-y:auto;border:1px dashed darkred;width:400px;flex-grow:0;"></div>`);
+            let qShowDom = $(`<div style="min-height:500px;overflow-y:auto;border:1px solid darkred;flex-grow:2;padding:20px 20px;"></div>`);
+
+            //切换任务线
+            for (let i = 0; i < questLine.length; i++) {
+                let quest_i = questLine[i];
+                if (!quest_i) continue;
+                let qList = $(`<ul class='qList' style="display:none;padding-left:unset;list-style-type:none;"></ul>`);
+                let thisQuest = GameData["Quests"].filter(quest => quest?.cat == i && quest?.name != "<Name>");//TODO:与游戏设计相关不同作者的处理方式不一样
+                let curQuest = quests.data.filter(quest => quest?.cat == i);
+
+                for (let j = 0; j < thisQuest.length; j++) {
+                    let quest_j = thisQuest[j];
+                    let isThisQuest = curQuest.find(q => q?.questId == quest_j.id)
+                    let status = "";
+                    if (isThisQuest?.status == "completed") status = "color:green;"
+                    else if (isThisQuest?.status == "progress") status = "color:red;"
+                    let qTask = $(`<li id="quest_${quest_j.id}" style="${status}padding:5px 5px;border:1px solid darkred;text-align:center;cursor:pointer;">${quest_j.id}:${stringFormat(quest_j.name, false)}</li>`);
+                    qTask.on("click", function () {//点击任务名称，查看任务详情
+                        qShowDom.empty();
+                        qItemDom.find(".checked").removeClass("checked");//取消选中
+                        qTask.addClass("checked");//添加选中样式
+                        qShowDom.append(`<h2>${stringFormat(quest_j.name, false)}</h2><p>${stringFormat(quest_j.desc)}</p><hr/>`);
+                        //任务进度判断
+                        let questInStep = quests.data.find(q => q?.questId == quest_j.id);
+                        let curStepId = questInStep?.currentStep || -1;
+
+                        let qStepDom = $(`<ol style="padding-left:20px;margin-left:50px;"></ol>`);
+                        for (let k = 0; k < quest_j.steps.length; k++) {
+                            let task_k = quest_j.steps[k][0];
+                            let showStyle = "";
+                            if (k < curStepId || questInStep?.status == "completed") showStyle = "color:gray;text-decoration: line-through;";
+                            else if (k == curStepId) showStyle = "color:orange;";
+                            else showStyle = "";
+                            qStepDom.append(`<li style="${showStyle};padding:5px 5px;">${stringFormat(task_k)}</li>`);
+                        }
+                        qShowDom.append(qStepDom);
+                    });
+                    qList.append(qTask);
+                }
+                qItemDom.append(qList);
+
+
+                let qBtn = $(`<button type="button" id="cat_${i}">${quest_i}</button>`);
+                qBtn.on("click", function () {//点击任务线按钮
+                    dom.find(`.qList`).hide();
+                    qLDom.find(".checked").removeClass("checked");//取消选中
+                    qItemDom.find(".checked").removeClass("checked");//取消选中
+                    qBtn.addClass("checked");//添加选中样式
+                    qShowDom.empty();
+                    qList.show();
+                });
+                qLDom.append(qBtn);
+            }
+            dom.append(qLDom);
+
+            qBody.append(qItemDom);
+            qBody.append(qShowDom);
+            dom.append(qBody);
+
+            //切换当前任务
+            let showQuest = quests.data.filter(quest => quest?.status == "progress");
+            if (showQuest.length > 0) {
+                let p = showQuest.pop();
+                dom.find(`#cat_${p.cat}`).trigger("click");
+                dom.find(`#quest_${p.questId}`).trigger("click");
+            } else {
+            }
+
+            ShowTopWin("任务列表", dom, {
+                top: "5%",
+                left: "5%",
+                width: "90vw",
+                height: "90vh",
+            });
         }
 
         /**
@@ -1018,7 +1107,7 @@
             for (let i = 0; i < mapInfo.length; i++) {
                 let mapInfo_i = mapInfo[i];
                 if (!mapInfo_i) continue;
-                dom.append(`<button type="button" style="margin:5px 5px;" onclick="MoveTo(${mapInfo_i.x}, ${mapInfo_i.y},${mapInfo_i.id})">${mapInfo_i.parentId ? mapInfo[mapInfo_i.parentId]?.name + "/" : ""}${mapInfo_i.name}</button>`);
+                dom.append(`<button type="button" style="margin:5px 5px;" onclick="MoveTo(${5}, ${5},${mapInfo_i.id})">${mapInfo_i.parentId ? mapInfo[mapInfo_i.parentId]?.name + "/" : ""}${mapInfo_i.name}</button>`);
             }
             ShowTopWin("所有注册的地图", dom);
         }
@@ -1056,7 +1145,7 @@
                     id: option.id,
                 });
                 $("#TopWin").hide();
-            }); 
+            });
             ShowTopWin(`设置${option.showType} - 《${option.name}》`, dom, {
                 top: "35%",
                 left: "25%",
@@ -1078,6 +1167,31 @@
             $("#TopWinTitle").text(title);
             $("#TopWinContent").empty().append(content);
             $("#TopWin").css(options).show();
+        }
+
+        function stringFormat(str, withMark = true) {
+            if (/\\N\[\d+\]/.test(str)) {
+                str = str.replace(/\\N\[(\d+)\]/g, (match, key) => {
+                    return withMark ? `<span style="color:blue;" title="${GameData.Actors[key]?.profile || ""}">${GameData.Actors[key]?.name || ""}</span>` : GameData.Actors[key]?.name;
+                });
+            }
+            if (/\\K\[\d+\]/.test(str)) {
+                str = str.replace(/\\K\[(\d+)\]/g, (match, key) => {
+                    return withMark ? `<span style="color:blue;" title="${GameData.Actors[key]?.profile || ""}">${GameData.Actors[key]?.nickname || ""}</span>` : GameData.Actors[key]?.nickname;
+                });
+            }
+            if (/\\M\[\d+\]/.test(str)) {
+                str = str.replace(/\\M\[(\d+)\]/g, (match, key) => {
+                    return withMark ? `<span style="color:green;" title="${GameData.Items[key]?.description || ""}">${GameData.Items[key]?.name || ""}</span>` : GameData.Items[key]?.name;
+                });
+            }
+            //W 常量名
+            if (/\\C\[\d+\]/.test(str)) {
+                str = str.replace(/\\C\[(\d+)\]/g, (match, key) => {
+                    return ``;
+                });
+            }
+            return str;
         }
     </script>
 </body>
