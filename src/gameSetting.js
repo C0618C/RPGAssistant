@@ -13,10 +13,10 @@ const ACTOR_DATA_FORMAT = {
     mhp: "value",
     mmp: "value",
     _name: "value",
+    _actorId: "value",
     _states: "value",       //角色状态
     _exp: "fn::currentExp",
     _maxExp: "fn::nextLevelExp",
-
     //一般游戏参考
     // agi:"fn::agi",      //敏捷
     // atk:"fn::atk",      //攻击

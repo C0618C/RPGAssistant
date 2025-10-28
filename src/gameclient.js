@@ -145,6 +145,9 @@ function AnswerData(data, socketClient) {
       case "MapInfos":
         data.data = $dataMapInfos || null;
         break;
+      case "CustomData":
+        data.data = CustomData || null;
+        break;
     }
   } catch (err) {
     // console.error("AnswerData::", err);
@@ -273,6 +276,9 @@ function ExecCMD(command) {
     case "Scale":
       Scale(command);      // 缩放游戏界面
       break;
+    case "LevelUp":
+      LevelUp(command);
+      break;
   }
 }
 
@@ -355,4 +361,9 @@ function Scale(command) {
 function Transfer(command) {
   if (!command.id || !command.x || !command.y) return;
   $gamePlayer?.reserveTransfer(parseInt(command.id), parseInt(command.x), parseInt(command.y), parseInt(command.direction), parseInt(command.fadeType));
+}
+
+function LevelUp(command) {
+  if (!command.id) return;
+  $gameActors.actor(command.id).levelUp();
 }

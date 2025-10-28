@@ -200,8 +200,21 @@
             font-size: 24px;
         }
 
-        .checked::after {
+        .checked::before {
+            content: '🚩';
+        }
+
+        .questComplete {
+            color: gray;
+            text-decoration: line-through;
+        }
+
+        .questComplete::before {
             content: '✅';
+        }
+
+        .questProcess {
+            color: orange;
         }
     </style>
 </head>
@@ -266,8 +279,8 @@
     <script type="template" id="actorInfoTemplate">
                 <div id="baseInfo_${actorIndex}" style="margin-bottom: 20px;">
                     <div>
-                        <div id="actorLevel_${actorIndex}" style="float: right;margin-right: 20px;"></div>
-                        <div id="actorName_${actorIndex}"></div>
+                        <div id="actorLevel_${actorIndex}" style="float: right;margin-right:20px;cursor:pointer" onclick="btLevelUp(${actorId})"></div>
+                        <div id="actorName_${actorIndex}" style="font-size:25px;"></div>
                     </div>
                     <table class="actorInfoTable">
                         <tr>
@@ -313,7 +326,7 @@
         const SCALE_OPTIONS = [
             { value: 1.0, label: "100%" },
             { value: 1.25, label: "125%" },
-            { value: 1.5, label: "150%" },
+            { value: 1.5, label: "150%", selected: "selected" },
             { value: 2.0, label: "200%" },
             { value: 2.15, label: "215%" },
             { value: 2.25, label: "225%" },
@@ -326,15 +339,12 @@
             socketClient.on("GameEnd", (data) => {
                 EndGame(data);
             });
-
             socketClient.on("CHECK_Result", (data) => {
                 SelectGame(data);
             });
             socketClient.on("Answer_Data", (data) => {
                 RenderData(data);
-            })
-
-
+            });
 
             //系统状态
             let _stateSelectGame = false;
@@ -384,6 +394,7 @@
                     GetData("Armors", { handleType: "Cache" }, { varName: "$dataArmors" });
                     GetData("Quests", { handleType: "Cache" }, { varName: "$dataQuests" });
                     GetData("Actors", { handleType: "Cache" }, { varName: "$dataActors" });
+                    GetData("CustomData", { handleType: "Cache" }, { varName: "CustomData" });//游戏个性化数据
 
                     setTimeout(Update, 1000);
                 }
@@ -395,7 +406,7 @@
                 GetData("Armor");
                 GetData("Weapon");
                 GetData("Gold");
-                GetData("Player");
+                // GetData("Player");
                 GetData("Coordinate");
                 GetData("Variables");
                 GetData("Switches");
@@ -429,6 +440,7 @@
          * @param {string} options.format 获取数据的格式/途径
          */
         function GetData(dataName, { handleType, key, format, cache } = { handleType: "Render", key: "", cache: true }, defaultData = {}) {
+            if (cache !== false) cache = true;
             let data = {
                 gameId: GameId,
                 action: "GetData",
@@ -538,7 +550,7 @@
             for (let i = 0; i < data.length; i++) {
                 let data_i = data[i];
                 if (!data_i) continue;
-                let actorHtml = $(template.replace(/\${actorIndex}/g, i));
+                let actorHtml = $(template.replace(/\${actorIndex}/g, i).replace(/\${actorId}/g, data_i._actorId));
 
                 actorHtml.find(`#actorName_${i}`).text("　" + data_i._name);
                 actorHtml.find(`#actorLevel_${i}`).text(`Lv.${data_i._level}`);
@@ -719,6 +731,17 @@
             })
         }
 
+        function btLevelUp(actorIndex) {
+            let actor = GameData.Actors[actorIndex];
+            if (!actor) return;
+
+            ExecCMD({
+                cmd: "LevelUp",
+                type: "Actor",
+                id: actorIndex,
+            });
+        }
+
         /**
          * 窗口：获取防具
          */
@@ -872,14 +895,12 @@
                     <div style="margin-bottom:20px;">
                         <label for="scaleSelect">选择缩放比例：</label>
                         <select id="scaleSelect" style="padding:5px;margin-left:10px;color:darkred;">
-                            ${SCALE_OPTIONS.map(option =>
-                `<option value="${option.value}">${option.label}</option>`
-            ).join('')}
+                            ${SCALE_OPTIONS.map(option => `<option value="${option.value}" ${option.selected || ""}>${option.label}</option>`).join('')}
                         </select>
                     </div>
                     <div style="margin-bottom:20px;">
                         <label for="customScale">或输入自定义缩放值：</label>
-                        <input id="customScale" type="number" step="0.1" min="1.0" max="5.0" 
+                        <input id="customScale" type="number" step="0.1" min="1.0" max="5.0" value="${SCALE_OPTIONS.find(opt => opt.selected).value}"
                                style="padding:5px;margin-left:10px;width:80px;color:darkred;" 
                                placeholder="1.0">
                     </div>
@@ -1018,8 +1039,8 @@
             let qLDom = $(`<div style="display:flex;flex-wrap:no-wrap;align-content: flex-start;overflow-y:auto;"></div>`);
             //任务列表
             let qBody = $(`<div style="display:flex;flex-wrap:wrap;align-content: flex-start;overflow-y:auto;width:100%"></div>`);
-            let qItemDom = $(`<div style="min-height:500px;overflow-y:auto;border:1px dashed darkred;width:400px;flex-grow:0;"></div>`);
-            let qShowDom = $(`<div style="min-height:500px;overflow-y:auto;border:1px solid darkred;flex-grow:2;padding:20px 20px;"></div>`);
+            let qItemDom = $(`<div style="min-height:600px;overflow-y:auto;border:1px dashed #400;width:400px;flex-grow:0;"></div>`);
+            let qShowDom = $(`<div style="min-height:600px;overflow-y:auto;border:1px solid #400;flex-grow:2;padding:20px 20px;"></div>`);
 
             //切换任务线
             for (let i = 0; i < questLine.length; i++) {
@@ -1027,7 +1048,7 @@
                 if (!quest_i) continue;
                 let qList = $(`<ul class='qList' style="display:none;padding-left:unset;list-style-type:none;"></ul>`);
                 let thisQuest = GameData["Quests"].filter(quest => quest?.cat == i && quest?.name != "<Name>");//TODO:与游戏设计相关不同作者的处理方式不一样
-                let curQuest = quests.data.filter(quest => quest?.cat == i);
+                let curQuest = quests.data.filter(quest => quest?.cat == i);//当前进行中/已完成任务的数据
 
                 for (let j = 0; j < thisQuest.length; j++) {
                     let quest_j = thisQuest[j];
@@ -1035,41 +1056,45 @@
                     let status = "";
                     if (isThisQuest?.status == "completed") status = "color:green;"
                     else if (isThisQuest?.status == "progress") status = "color:red;"
-                    let qTask = $(`<li id="quest_${quest_j.id}" style="${status}padding:5px 5px;border:1px solid darkred;text-align:center;cursor:pointer;">${quest_j.id}:${stringFormat(quest_j.name, false)}</li>`);
+                    let qTask = $(`<li id="quest_${quest_j.id}" style="${status}padding:8px 5px;border:1px solid #400;text-align:center;cursor:pointer;">${quest_j.id}:${stringFormat(quest_j.name, false)}</li>`);
                     qTask.on("click", function () {//点击任务名称，查看任务详情
                         qShowDom.empty();
                         qItemDom.find(".checked").removeClass("checked");//取消选中
                         qTask.addClass("checked");//添加选中样式
-                        qShowDom.append(`<h2>${stringFormat(quest_j.name, false)}</h2><p>${stringFormat(quest_j.desc)}</p><hr/>`);
+                        qShowDom.append(`<h2>${stringFormat(quest_j.name, false)}</h2><p>${stringFormat(quest_j.desc)}</p><hr style="border-color:#a55;" />`);
                         //任务进度判断
                         let questInStep = quests.data.find(q => q?.questId == quest_j.id);
                         let curStepId = questInStep?.currentStep || -1;
 
-                        let qStepDom = $(`<ol style="padding-left:20px;margin-left:50px;"></ol>`);
+                        let qStepDom = $(`<ol style="padding-left:20px;margin-left:50px;color:#ccc;"></ol>`);
                         for (let k = 0; k < quest_j.steps.length; k++) {
                             let task_k = quest_j.steps[k][0];
                             let showStyle = "";
-                            if (k < curStepId || questInStep?.status == "completed") showStyle = "color:gray;text-decoration: line-through;";
-                            else if (k == curStepId) showStyle = "color:orange;";
+                            if (k < curStepId || questInStep?.status == "completed") showStyle = "questComplete";
+                            else if (k == curStepId) showStyle = "questProcess checked";
                             else showStyle = "";
-                            qStepDom.append(`<li style="${showStyle};padding:5px 5px;">${stringFormat(task_k)}</li>`);
+                            qStepDom.append(`<li class="${showStyle}" style="padding:5px 5px;">${stringFormat(task_k)}</li>`);
                         }
                         qShowDom.append(qStepDom);
                     });
                     qList.append(qTask);
                 }
-                qItemDom.append(qList);
 
-
-                let qBtn = $(`<button type="button" id="cat_${i}">${quest_i}</button>`);
-                qBtn.on("click", function () {//点击任务线按钮
-                    dom.find(`.qList`).hide();
-                    qLDom.find(".checked").removeClass("checked");//取消选中
-                    qItemDom.find(".checked").removeClass("checked");//取消选中
-                    qBtn.addClass("checked");//添加选中样式
-                    qShowDom.empty();
-                    qList.show();
-                });
+                let qBtn = "";
+                if (thisQuest.length > 0) {
+                    qItemDom.append(qList);
+                    qBtn = $(`<button type="button" id="cat_${i}" ${thisQuest.length == 0}>${quest_i}</button>`);
+                    qBtn.on("click", function () {//点击任务线按钮
+                        dom.find(`.qList`).hide();
+                        qLDom.find(".checked").removeClass("checked");//取消选中
+                        qItemDom.find(".checked").removeClass("checked");//取消选中
+                        qBtn.addClass("checked");//添加选中样式
+                        qShowDom.empty();
+                        qList.show();
+                    });
+                } else {
+                    qBtn = $(`<button type="button" id="cat_${i}" disabled style="cursor:not-allowed;background-color:lightgray;">${quest_i}</button>`);
+                }
                 qLDom.append(qBtn);
             }
             dom.append(qLDom);
@@ -1185,7 +1210,12 @@
                     return withMark ? `<span style="color:green;" title="${GameData.Items[key]?.description || ""}">${GameData.Items[key]?.name || ""}</span>` : GameData.Items[key]?.name;
                 });
             }
-            //W 常量名
+            if (/\\W\[\d+\]/.test(str)) {
+                str = str.replace(/\\W\[(\d+)\]/g, (match, key) => {
+                    if (!GameData?.CustomData?.[key]) return match;
+                    return withMark ? `<span style="color:deeppink;">${GameData.CustomData[key] || ""}</span>` : GameData.CustomData[key];
+                });
+            }
             if (/\\C\[\d+\]/.test(str)) {
                 str = str.replace(/\\C\[(\d+)\]/g, (match, key) => {
                     return ``;
