@@ -229,8 +229,9 @@
             <div class="col" style="flex-grow: 0;flex-basis: min-content;overflow-y: auto;">
                 <div id="actorInfo"></div>
                 <div id="playerInfo" class="box" style="width: 400px;">
-                    <div id="coordinate">坐标：</div>
-                    <div id="gold">🪙金币：</div>
+                    <div id="curMap">当前地图：</div>
+                    <div id="coordinate">坐标：</div><br />
+                    <div id="gold" style="width: 100%;">🪙金币：0</div>
                 </div>
                 <div class="box">
                     <h5>背包</h5>
@@ -252,7 +253,8 @@
                         <button type="button" onclick="btSetScale()">缩放</button>
                         <button type="button" onclick="btSetGold()">获得金币</button>
                         <button type="button">习得技能</button>
-                        <button type="button" onclick="btShowMapInfo()">🗺查看所有地图信息</button>
+                        <button type="button" onclick="btShowMapInfo()"><span
+                                style="color:green;background-color: lightskyblue;">🗺</span>查看所有地图信息</button>
                         <button type="button" onclick="btCheckQuests()">查看任务</button>
                         <button type="button" onclick="btShowEvents()">查看当前地图交互点</button>
                     </div>
@@ -395,7 +397,7 @@
                     GetData("Quests", { handleType: "Cache" }, { varName: "$dataQuests" });
                     GetData("Actors", { handleType: "Cache" }, { varName: "$dataActors" });
                     GetData("CustomData", { handleType: "Cache" }, { varName: "CustomData" });//游戏个性化数据
-
+                    GetData("MapInfos", { handleType: "Cache" }, { varName: "$dataMapInfos" });
                     setTimeout(Update, 1000);
                 }
             }
@@ -410,6 +412,7 @@
                 GetData("Coordinate");
                 GetData("Variables");
                 GetData("Switches");
+                GetData("CurMapId", undefined, { varName: "$gameMap._mapId" });
                 requestAnimationFrame(Update);
             }
 
@@ -531,6 +534,9 @@
                 case "MapInfos":
                     ShowMapInfo(data.data);
                     break;
+                case "CurMapId":
+                    RenderCurMapInfo(data.data);
+                    break;
             }
         }
 
@@ -638,7 +644,9 @@
 
             let bagHtml = "";
             for (let [i, v] of DataShowTop.var.entries()) {
-                bagHtml += `<div class="item showAction" title="${i}" onclick="ClickVariable(${i},'${data[i]}')" oncontextmenu="SetVarTopDown(${i});return false;">${Variables[i]} ：${data[i]}</div>`;
+                let css = '';
+                if (oldData && data[i] != oldData[i]) css = `style="background-color:darkred;"`;
+                bagHtml += `<div class="item showAction" ${css} title="${i}" onclick="ClickVariable(${i},'${data[i]}')" oncontextmenu="SetVarTopDown(${i});return false;">${Variables[i]} ：${data[i]}</div>`;
             }
             if (bagHtml != "") {
                 variablesBox.append(top);
@@ -680,7 +688,9 @@
 
             let bagHtml = "";
             for (let [i, v] of DataShowTop.switch.entries()) {
-                bagHtml += `<div class="item showAction" title="${i}" onclick="ClickSwitch(${i})" oncontextmenu="SetSwitchTopDown(${i});return false;"><b>${Switches[i]} ：${data[i]}</b></div>`;
+                let css = "";
+                if (oldData && data[i] != oldData[i]) css = `style="background-color:darkred;"`;
+                bagHtml += `<div class="item showAction" ${css} title="${i}" onclick="ClickSwitch(${i})" oncontextmenu="SetSwitchTopDown(${i});return false;"><b>${Switches[i]} ：${data[i]}</b></div>`;
             }
             if (bagHtml != "") {
                 switchesBox.append(top);
@@ -699,6 +709,22 @@
             switchesBox.append(itemBox);
         }
 
+        /**
+         * 渲染当前地图名称
+         * @param {number} mapId 地图ID
+         */
+        function RenderCurMapInfo(mapId) {
+            let mapUrl = [];
+            let curMap = GameData.MapInfos[mapId];
+            mapUrl.push(curMap.name);
+
+            while (GameData.MapInfos[curMap.parentId]) {
+                curMap = GameData.MapInfos[curMap.parentId];
+                mapUrl.unshift(curMap.name);
+            }
+
+            $("#curMap").text(`当前地图：${mapUrl.join("/")}`);
+        }
 
         /**
          * 缓存数据
@@ -706,7 +732,6 @@
          */
         function CacheData(data) {
             GameData[data.type] = data.data;
-            // console.log("缓存数据：", data);
         }
 
         function ClickVariable(index, data) {
@@ -905,9 +930,7 @@
                                placeholder="1.0">
                     </div>
                     <div style="text-align:center;">
-                        <button type="button">
-                            应用缩放
-                        </button>
+                        <button type="button">应用缩放</button>
                     </div>
                 </div>
             `);
@@ -963,7 +986,7 @@
                 <div>请输入位置：<br/>
                     X：<input id="positionX" type="text" value="${coordinate.x}"><br/>
                     Y：<input id="positionY" type="text" value="${coordinate.y}">
-                    <br/><button type="button">设置</button>
+                    <br/><br/><button type="button">移动</button>
                 </div>
             `);
             dom.find("button").click(function () {
@@ -1128,13 +1151,47 @@
             else GetData("MapInfos");
         }
         function ShowMapInfo(mapInfo) {
-            let dom = $(`<div style="display:flex;flex-wrap:wrap;align-content: flex-start;overflow-y:auto;height:800px;"></div>`);//$gamePlayer.reserveTransfer(mapId, x, y, direction, fadeType)
-            for (let i = 0; i < mapInfo.length; i++) {
-                let mapInfo_i = mapInfo[i];
-                if (!mapInfo_i) continue;
-                dom.append(`<button type="button" style="margin:5px 5px;" onclick="MoveTo(${5}, ${5},${mapInfo_i.id})">${mapInfo_i.parentId ? mapInfo[mapInfo_i.parentId]?.name + "/" : ""}${mapInfo_i.name}</button>`);
+            //缓存所有地图
+            let bt = $("<button>缓存所有地图</button>");
+            bt.on("click", () => { ExecCMD({ cmd: "CacheAllMap" }); });
+            let dom = $(`<div style="display:flex;flex-wrap:wrap;align-content:flex-start;align-items:flex-start;overflow-y:auto;height:800px;"></div>`);//$gamePlayer.reserveTransfer(mapId, x, y, direction, fadeType)
+            let mapIdSet = new Set(mapInfo.map(map => map?.id));
+            mapIdSet.delete(undefined);
+            let curMapId = parseInt(GameCacheData.CurMapId);
+            //所有房间入口
+            let renderMap = function (mapId, rootDom, titleSize = 2) {
+                let mapRoots = mapInfo.filter(map => map?.parentId === mapId);
+                for (let i = 0; i < mapRoots.length; i++) {
+                    let mapRoot_i = mapRoots[i];
+                    mapIdSet.delete(mapRoot_i.id);
+                    let mapDom = $(`<div class="mapBox" style="display:flex;flex-wrap: wrap;align-items:flex-start;margin:10px 10px;padding:5px 5px;border:1px solid #400;flex-grow:1;background-color:#${"".padEnd(3, titleSize.toString())}">
+                        <h${Math.min(titleSize, 6)} onclick="MoveTo(${6}, ${6},${mapRoot_i.id})" style="cursor:pointer;width:100%;">${mapRoot_i.id}&nbsp;${mapRoot_i.name}</h${Math.min(titleSize, 6)}>
+                    </div>`);
+                    if (mapRoot_i.id == curMapId) mapDom.css("backgroundColor", "darkred");
+                    rootDom.append(mapDom);
+                    renderMap(mapRoot_i.id, mapDom, titleSize + 1);
+                }
             }
-            ShowTopWin("所有注册的地图", dom);
+            renderMap(0, dom);//注意以0为根地图
+            while (mapIdSet.size > 0) {
+                let mapId = mapIdSet.values().next().value;
+                mapIdSet.delete(mapId);
+                let mapDom = $(`<div class="mapBox" style="display:flex;flex-wrap: wrap;align-items:flex-start;margin:10px 10px;padding:5px 5px;border:1px solid #400;flex-grow:1;background-color:#eee">
+                    <h${Math.min(titleSize, 6)} onclick="MoveTo(${6}, ${6},${mapId})" style="cursor:pointer;width:100%;">${mapId}&nbsp;${mapInfo.find(map => map?.id == mapId)?.name}</h${Math.min(titleSize, 6)}>
+                </div>`);
+                renderMap(mapId, mapDom);
+                dom.append(mapDom);
+            }
+
+            dom.children(".mapBox").css("border", "2px solid darkred");
+
+            ShowTopWin("所有注册的地图", dom, {
+                top: "10%",
+                left: "10%",
+                width: "80vw",
+                height: "80vh"
+            });
+            dom.before(bt);
         }
 
         /**
@@ -1161,7 +1218,7 @@
                 let dataType = dom.find("input[name='dataType']:checked").val();
                 let value = dom.find("#tempValue").val();
                 if (dataType == "Number") value = parseInt(value);
-                else if (dataType == "Boolean") value = parseBoolean(value);
+                else if (dataType == "Boolean") value = (value == "true" || value > 0);
 
                 ExecCMD({
                     cmd: "Set",

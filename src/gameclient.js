@@ -279,6 +279,9 @@ function ExecCMD(command) {
     case "LevelUp":
       LevelUp(command);
       break;
+    case "CacheAllMap":
+      CacheAllMap(command);
+      break;
   }
 }
 
@@ -366,4 +369,28 @@ function Transfer(command) {
 function LevelUp(command) {
   if (!command.id) return;
   $gameActors.actor(command.id).levelUp();
+}
+
+/**
+ * 缓存所有地图
+ * @param {*} command 
+ */
+function CacheAllMap(command) {
+  if (!$dataMapInfos) return;
+  let mapId = $dataMapInfos.filter(m => m?.id >= 0).map(m => m.id);
+  let strPath = location.href;
+  if (strPath.endsWith("index.html")) strPath = strPath.replace("index.html", "");
+  let LM = (id, mids) => {
+    if (!id && id != 0) return;
+    fetch(`${strPath}data/Map${id.toString().padStart(3, "0")}.json`).finally(() => {
+      if (mids.length == 0) {
+        alert("已缓存所有地图数据");
+        return;
+      }
+      let id = mids.pop();
+      LM(id, mids);
+    })
+  }
+  LM(mapId.pop(), mapId);
+  alert("开始缓存地图数据，请稍后...");
 }
