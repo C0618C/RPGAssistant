@@ -144,6 +144,10 @@
             overflow-y: auto;
         }
 
+        #dataChangeLog>div {
+            padding: 2px 8px;
+        }
+
         .itemBox {
             border-top: 1px solid rgb(90, 8, 8);
             border-bottom: 1px solid rgb(90, 8, 8);
@@ -200,7 +204,8 @@
         .TopWin #TopWinContent * {
             font-size: 24px;
         }
-        .mask{
+
+        .mask {
             position: absolute;
             top: 0;
             left: 0;
@@ -231,7 +236,8 @@
 </head>
 
 <body>
-    <div id="loading" style="width: 100%;height: 100vh;display: flex;justify-content: center;align-items: center;">正在查找游戏，若长期停留本界面，请刷新游戏试试...</div>
+    <div id="loading" style="width: 100%;height: 100vh;display: flex;justify-content: center;align-items: center;">
+        正在查找游戏，若长期停留本界面，请刷新游戏试试...</div>
     <div id="main" style="width: 100%;height: 100vh;display: none;">
         <h3 id="gameName"></h3>
         <div id="gameInfo">
@@ -263,14 +269,19 @@
                         <button type="button" onclick="btSetScale()">缩放</button>
                         <button type="button" onclick="btSetGold()">获得金币</button>
                         <button type="button">习得技能</button>
-                        <button type="button" onclick="btShowMapInfo()"><span
-                                style="color:green;background-color: lightskyblue;">🗺</span>查看所有地图信息</button>
                         <button type="button" onclick="btCheckQuests()">查看任务</button>
+                        <button type="button" onclick="btShowMapInfo()">
+                            <span style="color:green;background-color: lightskyblue;">🗺</span>查看所有地图信息
+                        </button>
                         <button type="button" onclick="btShowEvents()">查看当前地图交互点</button>
-                        <button type="button">登记数据变更</button>
-                        <button type="button">查看数据日志</button>
+                        <button type="button" onclick="btRegisterChange()">登记数据变更</button>
+                        <button type="button" onclick="btToggleLog()">查看数据日志</button>
                     </div>
                 </div>
+            </div>
+            <div class="col" style="display: none;" id="changeLog">
+                <h4>数据变更日志</h4>
+                <div id="dataChangeLog"></div>
             </div>
             <div class="col">
                 <h4>变量</h4>
@@ -338,6 +349,11 @@
             var: new Set(),
             switch: new Set()
         };
+
+        // 数据变更日志相关
+        let DataChangeSetting = {};
+        let DataChangeLog = createObservableArray([], RenderDataChangeLog);
+
         // 缩放选项
         const SCALE_OPTIONS = [
             { value: 1.0, label: "100%" },
@@ -353,7 +369,8 @@
             GameId = gameid;
             GameName = gamename;
             _stateSelectGame = true;
-            $("#TopWin").hide();
+            DataChangeSetting = {};
+            HideTopWin();
             console.log("已载入游戏：", GameName)
         }
         //系统状态
@@ -425,7 +442,7 @@
             console.log("游戏下线：", GameName);
             $("#loading").show();
             $("#main").hide();
-            $("#TopWin").hide();
+            HideTopWin();
             GameId = null;
             GameName = null;
             GameData = null;
@@ -662,7 +679,12 @@
             let bagHtml = "";
             for (let [i, v] of DataShowTop.var.entries()) {
                 let css = '';
-                if (oldData && data[i] != oldData[i]) css = `style="background-color:darkred;"`;
+                if (oldData && data[i] != oldData[i]) { //数据变更
+                    css = `style="background-color:darkred;"`;
+                    if (DataChangeSetting.varAll || DataChangeSetting.v?.has(i)) {
+                        DataChangeLog.push({ i, old: oldData[i], new: data[i], type: "变量" });
+                    }
+                }
                 bagHtml += `<div class="item showAction" ${css} title="${i}" onclick="ClickVariable(${i},'${data[i]}')" oncontextmenu="SetVarTopDown(${i});return false;">${Variables[i]} ：${data[i]}</div>`;
             }
             if (bagHtml != "") {
@@ -675,7 +697,12 @@
                 if (!v && !data[i]) continue;
                 let css = ``;
                 if (DataShowTop.var.has(i)) continue;
-                if (oldData && data[i] != oldData[i]) css = `style="background-color:darkred;"`;
+                if (oldData && data[i] != oldData[i]) {
+                    css = `style="background-color:darkred;"`;
+                    if (DataChangeSetting.varAll || DataChangeSetting.v?.has(i)) {
+                        DataChangeLog.push({ i, old: oldData[i], new: data[i], type: "变量" });
+                    }
+                }
                 bagHtml += `<div class="item showAction" ${css} title="${i}" onclick="ClickVariable(${i},'${data[i]}')" oncontextmenu="SetVarTop(${i});return false;">${v} ：${data[i]}</div>`;
             }
             itemBox.html(bagHtml);
@@ -706,7 +733,12 @@
             let bagHtml = "";
             for (let [i, v] of DataShowTop.switch.entries()) {
                 let css = "";
-                if (oldData && data[i] != oldData[i]) css = `style="background-color:darkred;"`;
+                if (oldData && data[i] != oldData[i]) {
+                    css = `style="background-color:darkred;"`;
+                    if (DataChangeSetting.switchAll || DataChangeSetting.s?.has(i)) {
+                        DataChangeLog.push({ i, old: oldData[i], new: data[i], type: "开关" });
+                    }
+                }
                 bagHtml += `<div class="item showAction" ${css} title="${i}" onclick="ClickSwitch(${i})" oncontextmenu="SetSwitchTopDown(${i});return false;"><b>${Switches[i]} ：${data[i]}</b></div>`;
             }
             if (bagHtml != "") {
@@ -719,7 +751,12 @@
                 if (!v && !data[i]) continue;
                 let css = ``;
                 if (DataShowTop.switch.has(i)) continue;
-                if (oldData && data[i] != oldData[i]) css = `style="background-color:darkred;"`;
+                if (oldData && data[i] != oldData[i]) {
+                    css = `style="background-color:darkred;"`;
+                    if (DataChangeSetting.switchAll || DataChangeSetting.s?.has(i)) {
+                        DataChangeLog.push({ i, old: oldData[i], new: data[i], type: "开关" });
+                    }
+                }
                 bagHtml += `<div class="item showAction" ${css} title="${i}" onclick="ClickSwitch(${i})" oncontextmenu="SetSwitchTop(${i});return false;"><b>${v} ：${data[i]}</b></div>`;
             }
             itemBox.html(bagHtml);
@@ -796,6 +833,10 @@
             });
         }
 
+        function btToggleLog() {
+            $("div#changeLog").toggle();
+        }
+
         /**
          * 格式化字符串--与游戏内置格式关联
          * @param {string} str 字符串
@@ -830,6 +871,17 @@
                 });
             }
             return str;
+        }
+
+        function RenderDataChangeLog(data, type) {
+            if (type == "clean") {
+                $("#dataChangeLog").html();
+                return;
+            }
+            data.forEach(item => {
+                let name = item.type == "变量" ? GameData.Variables[item.i] : GameData.Switches[item.i];
+                $("#dataChangeLog").prepend(`<div>[${new Date().toLocaleString()}]：${item.type} <span style="color:red;">${name}</span> 由【${item.old}】变更为【${item.new}】</div>`);
+            });
         }
     </script>
 </body>

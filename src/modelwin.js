@@ -500,3 +500,116 @@ function SetGameValue(option) {
         height: "40vh",
     });
 }
+
+/**
+ * 登记数据变更
+ */
+function btRegisterChange() {
+    let varSetting = [];
+    for (let i = 0; i < GameData.Variables.length; i++) {
+        if (!GameData.Variables[i]) continue;
+        varSetting.push({ id: i, name: `[${i} - ${GameData.Variables[i]}]` });
+    }
+    let switchSetting = [];
+    for (let i = 0; i < GameData.Switches.length; i++) {
+        if (!GameData.Switches[i]) continue;
+        switchSetting.push({ id: i, name: `[${i} - ${GameData.Switches[i]}]` });
+    }
+
+    let mainDom = $("<div style='overflow-y:auto;height:800px;'></div>");
+    //console.log(DataChangeSetting)
+    $("<input type='checkbox' id='registerChange' value='1' /><label for='registerChange'>启动数据变更监控</label>").appendTo(mainDom);
+    let $dataChangeSetting = $("<div style='margin-top:10px;display:none;' id='dataChangeSetting'></div>");
+
+    $dataChangeSetting.append(
+        $("<h6 style='text-align:center;margin-bottom:5px;'>监控变量</h6><br/>"),
+        $("<input type='checkbox' id='varAll' value='all' checked/><label for='varAll'>监控所有变量</label><br/>"),
+        $("<div id='varSelecter' style='border:1px solid #400;padding:5px 5px;display:none;max-height:380px;overflow-y:auto;'></div>").append(
+            ...varSetting.map(varInfo => $(`<label style='margin-right:10px;padding:5px;'><input type='checkbox' value='${varInfo.id}' id='v_selecter' ${DataChangeSetting.v?.has(varInfo.id) ? "checked" : ""}/>${varInfo.name}</label>`))
+        ),
+
+        $("<h6 style='text-align:center;margin-bottom:5px;'>监控开关</h6><br/>"),
+        $("<input type='checkbox' id='switchAll' value='all' checked/><label for='switchAll'>监控所有开关</label><br/>"),
+        $("<div id='switchSelecter' style='border:1px solid #400;padding:5px 5px;display:none;max-height:380px;overflow-y:auto;'></div>").append(
+            ...switchSetting.map(switchInfo => $(`<label style='margin-right:10px;padding:5px;'><input type='checkbox' value='${switchInfo.id}' id='s_selecter' ${DataChangeSetting.s?.has(switchInfo.id) ? "checked" : ""}/>${switchInfo.name}</label>`))
+        )
+    );
+    $dataChangeSetting.appendTo(mainDom);
+    $dataChangeSetting.find("#varAll").change(function () {
+        $dataChangeSetting.find("#varSelecter").toggle(!this.checked);
+    });
+    $dataChangeSetting.find("#switchAll").change(function () {
+        $dataChangeSetting.find("#switchSelecter").toggle(!this.checked);
+    });
+
+    $(`<div style='text-align:center;margin-top:35px;'><button id='btSet' type="button">设置</button>&nbsp;<button id='btClean' type="button">清除数据日志</button></div>`).appendTo(mainDom);
+
+    mainDom.on("change", "#registerChange", function () {
+        $dataChangeSetting.toggle(this.checked);
+
+    });
+
+    mainDom.on("click", "#btSet", function () { //设置
+        let isLog = $("#registerChange").is(":checked");
+        $("div#changeLog").toggle(isLog);
+        HideTopWin();
+        DataChangeSetting = {};
+
+        if (!isLog) return;;
+        DataChangeSetting.varAll = $("#varAll").is(":checked");
+        DataChangeSetting.switchAll = $("#switchAll").is(":checked");
+        DataChangeSetting.v = new Set();
+        DataChangeSetting.s = new Set();
+
+        if (!DataChangeSetting.varAll) {
+            DataChangeSetting.v = new Set($dataChangeSetting.find("#v_selecter:checked").map((i, e) => $(e).attr("value") * 1));
+        }
+        if (!DataChangeSetting.switchAll) {
+            DataChangeSetting.s = new Set($dataChangeSetting.find("#s_selecter:checked").map((i, e) => $(e).attr("value") * 1));
+        }
+        // console.log(DataChangeSetting);
+    });
+    mainDom.on("click", "#btClean", function () {
+        DataChangeLog.length = 0;
+        HideTopWin();
+    });
+
+    ShowTopWin("登记数据变更", mainDom);
+}
+
+/**
+ * 创建可观察数组
+ * @param {Array} arr - 原始数组
+ * @param {Function} callback - 变化回调函数
+ * @returns {Proxy} - 可观察数组代理
+ */
+function createObservableArray(arr, callback) {
+    return new Proxy(arr, {
+        set(target, property, value, receiver) {
+            const result = Reflect.set(target, property, value, receiver);
+            if (property == 'length' && oldValue !== value && value == 0) {
+                callback(null, "clean");
+            }
+            return result;
+        },
+        /**
+         * 获取数组属性
+         * @param {Array} target - 源数组
+         * @param {string} property - 属性名
+         * @returns {*} - 属性值
+        */
+        get(target, property, receiver) {
+            const value = Reflect.get(target, property, receiver);
+
+            // 拦截数组方法
+            if (typeof value === 'function' && ['push'].includes(property)) {
+                return function (...args) {
+                    const result = value.apply(target, args);
+                    callback(args);
+                    return result;
+                };
+            }
+            return value;
+        }
+    });
+}
