@@ -144,6 +144,10 @@
             overflow-y: auto;
         }
 
+        #dataChangeLog {
+            overflow-x: auto;
+        }
+
         #dataChangeLog>div {
             padding: 2px 8px;
         }
@@ -271,9 +275,10 @@
                         <button type="button">习得技能</button>
                         <button type="button" onclick="btCheckQuests()">查看任务</button>
                         <button type="button" onclick="btShowMapInfo()">
-                            <span style="color:green;background-color: lightskyblue;">🗺</span>查看所有地图信息
+                            <span style="color:green;background-color: lightskyblue;">🗺</span>世界地图
                         </button>
                         <button type="button" onclick="btShowEvents()">查看当前地图交互点</button>
+                        <button type="button" onclick="btActiveEvents()" title="将当前房间中由Switch控制的交互点设置为激活，常见于回想房间中激活所有回想">激活当前房间交互点</button>
                         <button type="button" onclick="btRegisterChange()">登记数据变更</button>
                         <button type="button" onclick="btToggleLog()">查看数据日志</button>
                     </div>
@@ -679,7 +684,7 @@
             let bagHtml = "";
             for (let [i, v] of DataShowTop.var.entries()) {
                 let css = '';
-                if (oldData && data[i] != oldData[i]) { //数据变更
+                if (oldData && !DataIsEqual(data[i], oldData[i])) { //数据变更
                     css = `style="background-color:darkred;"`;
                     if (DataChangeSetting.varAll || DataChangeSetting.v?.has(i)) {
                         DataChangeLog.push({ i, old: oldData[i], new: data[i], type: "变量" });
@@ -697,7 +702,7 @@
                 if (!v && !data[i]) continue;
                 let css = ``;
                 if (DataShowTop.var.has(i)) continue;
-                if (oldData && data[i] != oldData[i]) {
+                if (oldData && !DataIsEqual(data[i], oldData[i])) {
                     css = `style="background-color:darkred;"`;
                     if (DataChangeSetting.varAll || DataChangeSetting.v?.has(i)) {
                         DataChangeLog.push({ i, old: oldData[i], new: data[i], type: "变量" });
@@ -733,7 +738,7 @@
             let bagHtml = "";
             for (let [i, v] of DataShowTop.switch.entries()) {
                 let css = "";
-                if (oldData && data[i] != oldData[i]) {
+                if (oldData && !DataIsEqual(data[i], oldData[i])) {
                     css = `style="background-color:darkred;"`;
                     if (DataChangeSetting.switchAll || DataChangeSetting.s?.has(i)) {
                         DataChangeLog.push({ i, old: oldData[i], new: data[i], type: "开关" });
@@ -751,7 +756,7 @@
                 if (!v && !data[i]) continue;
                 let css = ``;
                 if (DataShowTop.switch.has(i)) continue;
-                if (oldData && data[i] != oldData[i]) {
+                if (oldData && !DataIsEqual(data[i], oldData[i])) {
                     css = `style="background-color:darkred;"`;
                     if (DataChangeSetting.switchAll || DataChangeSetting.s?.has(i)) {
                         DataChangeLog.push({ i, old: oldData[i], new: data[i], type: "开关" });
@@ -882,6 +887,17 @@
                 let name = item.type == "变量" ? GameData.Variables[item.i] : GameData.Switches[item.i];
                 $("#dataChangeLog").prepend(`<div>[${new Date().toLocaleString()}]：${item.type} <span style="color:red;">${name}</span> 由【${item.old}】变更为【${item.new}】</div>`);
             });
+        }
+        function DataIsEqual(data1, data2) {
+            if (typeof data1 != typeof data2) return false;
+            if (Array.isArray(data1)) {
+                return ArrayIsEqual(data1, data2);
+            }
+            return data1 == data2;
+        }
+        function ArrayIsEqual(arr1, arr2) {
+            if (arr1.length != arr2.length) return false;
+            return JSON.stringify(arr1) == JSON.stringify(arr2);
         }
     </script>
 </body>

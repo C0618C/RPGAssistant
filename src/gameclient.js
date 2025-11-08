@@ -282,6 +282,9 @@ function ExecCMD(command) {
     case "CacheAllMap":
       CacheAllMap(command);
       break;
+    case "ActiveEvents":
+      ActiveEvents(command);
+      break;
   }
 }
 
@@ -393,4 +396,24 @@ function CacheAllMap(command) {
   }
   LM(mapId.pop(), mapId);
   alert("开始缓存地图数据，请稍后...");
+}
+/**
+ * 激活当前地图的交互对象
+ * @param {*} command 
+ */
+function ActiveEvents(command) {
+  if (!$dataMap) return;
+  let hasSet = new Set();
+  $dataMap.events.forEach(event => {
+    if (!event) return;
+    //$dataMap.events[12].pages[0].conditions.switch1Id
+    for (let i = 0; i < event?.pages.length; i++) {
+      let switchId = parseInt(event?.pages[i]?.conditions?.switch1Id);
+      if (!switchId) return;
+      $gameSwitches.setValue(switchId, true);
+      if (hasSet.has(switchId)) continue;
+      hasSet.add(switchId);
+      console.log(switchId);
+    }
+  });
 }

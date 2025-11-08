@@ -396,6 +396,10 @@ function ShowQuests(quests, err) {
 function btShowEvents() {
     GetData("CurEvents", { cache: false });
 }
+function btActiveEvents(){
+    ExecCMD({ cmd: "ActiveEvents" });
+}
+
 function ShowCurEvents(events) {
     let dom = $(`
                 <div style="display:flex;flex-wrap:wrap;align-content: flex-start;overflow-y:auto;height:800px;">
@@ -556,8 +560,8 @@ function btRegisterChange() {
         DataChangeSetting = {};
 
         if (!isLog) return;;
-        DataChangeSetting.varAll = $("#varAll").is(":checked");
-        DataChangeSetting.switchAll = $("#switchAll").is(":checked");
+        DataChangeSetting.varAll = $dataChangeSetting.find("#varAll").is(":checked");
+        DataChangeSetting.switchAll = $dataChangeSetting.find("#switchAll").is(":checked");
         DataChangeSetting.v = new Set();
         DataChangeSetting.s = new Set();
 
